@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+runtime/
+student_submission/*
+!student_submission/.gitkeep
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
