@@ -75,7 +75,7 @@ def render(st) -> None:
         "source install/setup.bash\n"
         "colcon test --packages-select week03_pattern\n"
         "colcon test-result --verbose\n"
-        "../scripts/evaluate_ai_pattern.sh",
+        "bash ../scripts/evaluate_ai_pattern.sh",
         language="bash",
     )
     result = ai_evaluation()
@@ -107,4 +107,3 @@ def render(st) -> None:
         st.success("The original output, final code, diff, tests, and explanations are saved.")
         if st.button("Continue to final submission", type="primary"):
             set_stage(st, "final")
-

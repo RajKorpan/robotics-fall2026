@@ -28,25 +28,32 @@ This is a short classroom usability exercise, not human-subjects research and no
 - keep physical motion disabled unless the instructor explicitly supervises it; and
 - each student uses and submits only their own evaluation data.
 
-## Supported environment
+## Shared ROS environment
 
-- Ubuntu 24.04 and ROS 2 Jazzy
-- Python 3.10+ and Streamlit
-- No physical robot is required
+Use the course container configured once in Week 1. It provides ROS 2 Jazzy, colcon, and Streamlit on Windows, macOS, and Linux. No physical robot is required. See [`../ROS_DOCKER_SETUP.md`](../ROS_DOCKER_SETUP.md).
 
-## Install and run
+## Run
+
+Windows:
+
+```powershell
+.\scripts\ros_course.ps1 lab week11_hri_evaluation
+```
+
+macOS/Linux:
 
 ```bash
-cd week11_hri_evaluation/ros2_ws
-source /opt/ros/jazzy/setup.bash
-colcon build --symlink-install
-cd ..
-python3 -m pip install --user -r requirements.txt
-chmod +x scripts/*.sh scripts/*.py
-./scripts/course_preflight.sh
-./scripts/launch_interaction.sh
-python3 -m streamlit run app.py
+./scripts/ros_course.sh lab week11_hri_evaluation
 ```
+
+Then, in the browser desktop terminal:
+
+```bash
+bash scripts/course_preflight.sh
+bash scripts/launch_interaction.sh
+```
+
+The guide is at `http://localhost:8501`; the launcher selects `ROS_DOMAIN_ID=31`, sources the Week 11 workspace, and keeps motion disabled by default.
 
 Send commands from another sourced terminal:
 

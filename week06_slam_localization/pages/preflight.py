@@ -3,8 +3,8 @@ from lab.evidence import load_json
 from lab.navigation import set_stage
 def render(st):
     st.header("ROS 2 preflight")
-    st.write("Use Ubuntu 24.04 with ROS 2 Jazzy. Build once, choose a unique `ROS_DOMAIN_ID`, then run the supplied preflight.")
-    st.code("cd week06_slam_localization/ros2_ws\nsource /opt/ros/jazzy/setup.bash\ncolcon build --symlink-install\ncd ..\nexport ROS_DOMAIN_ID=26\nchmod +x scripts/*.sh\n./scripts/course_preflight.sh", language="bash")
+    st.write("Use the shared course container configured in Week 1. The course launcher has already selected `ROS_DOMAIN_ID=26`, sourced ROS 2 Jazzy, and opened this lab directory.")
+    st.code("bash scripts/course_preflight.sh", language="bash")
     runtime = Path(__file__).resolve().parents[1] / "runtime" / "evidence" / "preflight.json"
     evidence = None
     if runtime.exists():

@@ -45,7 +45,7 @@ def render(st) -> None:
         "source install/setup.bash\n"
         "colcon test --packages-select week01_behavior\n"
         "colcon test-result --verbose\n"
-        "../scripts/evaluate_behavior.sh",
+        "bash ../scripts/evaluate_behavior.sh",
         language="bash",
     )
     st.markdown(
@@ -95,4 +95,3 @@ def render(st) -> None:
         st.success("Your tested behavior and source snapshot are saved.")
         if st.button("Continue to final submission", type="primary"):
             set_stage(st, "final")
-

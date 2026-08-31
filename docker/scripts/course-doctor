@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -u
+
+source /opt/ros/jazzy/setup.bash
+failures=0
+
+check() {
+  local label="$1"
+  shift
+  if "$@" >/dev/null 2>&1; then printf '[PASS] %s\n' "$label"
+  else printf '[FAIL] %s\n' "$label"; failures=$((failures + 1)); fi
+}
+
+check "ROS 2 Jazzy" bash -lc '[[ "$ROS_DISTRO" == jazzy ]]'
+check "ROS CLI" ros2 --help
+check "TurtleBot3 Gazebo" ros2 pkg prefix turtlebot3_gazebo
+check "TurtleBot3 navigation" ros2 pkg prefix turtlebot3_navigation2
+check "SLAM Toolbox" ros2 pkg prefix slam_toolbox
+check "Nav2" ros2 pkg prefix nav2_bringup
+check "RViz" ros2 pkg prefix rviz2
+check "cv_bridge" ros2 pkg prefix cv_bridge
+check "image tools" ros2 pkg prefix image_view
+check "Streamlit" python -c 'import streamlit'
+check "OpenCV and NumPy" python -c 'import cv2, numpy'
+check "Browser desktop display" xdpyinfo -display "${DISPLAY:-:1}"
+
+for lab in week01_ros_foundations week03_motion_frames_ai week06_slam_localization week08_vision_perception week09_planning_navigation week11_hri_evaluation; do
+  check "$lab workspace" test -f "/workspace/$lab/ros2_ws/install/setup.bash"
+done
+
+if (( failures > 0 )); then
+  echo "$failures shared-environment checks failed." >&2
+  exit 1
+fi
+echo "Shared ROS course environment is ready."

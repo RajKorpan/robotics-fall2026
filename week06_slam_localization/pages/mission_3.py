@@ -10,12 +10,12 @@ LABELS = {"good_initial_pose": "Good initial pose", "incorrect_initial_pose": "I
 def render(st):
     st.header("Mission 3 — Localize in the saved map")
     st.write("Use the better of your two saved maps. Restart the simulator and localization for each condition so history does not leak between trials. Keep the robot still while setting the initial pose, then drive slowly enough for scan matching.")
-    st.code("# Normal trials: replace the path with your absolute YAML path\n./scripts/launch_localization.sh /absolute/path/to/map.yaml normal\n\n# In another sourced terminal, after setting the initial pose in RViz\nros2 run course_slam_tools localization_recorder --ros-args \\\n  -p condition:=good_initial_pose -p duration:=30.0 \\\n  -p output:=runtime/evidence/good_initial_pose.json", language="bash")
+    st.code("# Normal trials: replace the path with your absolute YAML path\nbash scripts/launch_localization.sh /absolute/path/to/map.yaml normal\n\n# In another sourced terminal, after setting the initial pose in RViz\nros2 run course_slam_tools localization_recorder --ros-args \\\n  -p condition:=good_initial_pose -p duration:=30.0 \\\n  -p output:=runtime/evidence/good_initial_pose.json", language="bash")
     st.markdown("""
 **Good initial pose:** place the estimate close to the simulated robot with a matching heading.  
 **Incorrect initial pose:** place it at least 1 m away or rotate it at least 90°, then move through distinctive geometry and observe recovery.  
 **Ambiguous location:** initialize in a visually similar corridor or symmetric area. Watch the particle cloud, covariance, and competing hypotheses.  
-**Degraded scan:** restart with `./scripts/launch_localization.sh /absolute/path/to/map.yaml degraded`, which routes AMCL through the supplied 50%-retention noisy scan proxy. Use `condition:=degraded_sensor` in the recorder command.
+**Degraded scan:** restart with `bash scripts/launch_localization.sh /absolute/path/to/map.yaml degraded`, which routes AMCL through the supplied 50%-retention noisy scan proxy. Use `condition:=degraded_sensor` in the recorder command.
 """)
     trials = {}
     uploads = []

@@ -14,7 +14,7 @@ ROLES = ["Sensing", "Decision/control", "Actuation", "Simulation", "Visualizatio
 def render(st) -> None:
     st.title("Mission 1: Observe the robot")
     st.write("Determine how the simulated robot is organized and how information moves through it.")
-    st.code("./scripts/launch_lab.sh", language="bash")
+    st.code("bash scripts/launch_lab.sh", language="bash")
 
     graph = latest_graph()
     if not graph:
@@ -103,4 +103,3 @@ def render(st) -> None:
         st.success("This graph investigation is saved.")
         if st.button("Continue to Mission 2", type="primary"):
             set_stage(st, "mission_2")
-

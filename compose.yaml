@@ -1,0 +1,21 @@
+name: robotics-fall2026
+services:
+  course-ros:
+    image: ${COURSE_ROS_IMAGE:-robotics-fall2026:jazzy}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    shm_size: 2gb
+    init: true
+    stdin_open: true
+    tty: true
+    environment:
+      COURSE_DESKTOP_SIZE: ${COURSE_DESKTOP_SIZE:-1600x900x24}
+      TURTLEBOT3_MODEL: burger
+      LIBGL_ALWAYS_SOFTWARE: ${LIBGL_ALWAYS_SOFTWARE:-1}
+    ports:
+      - "127.0.0.1:6080:6080"
+      - "127.0.0.1:8501:8501"
+    volumes:
+      - .:/workspace
+

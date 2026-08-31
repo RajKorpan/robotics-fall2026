@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export DISPLAY="${DISPLAY:-:1}"
+mkdir -p /tmp/.X11-unix "$HOME/.fluxbox"
+rm -f /tmp/.X1-lock /tmp/.X11-unix/X1
+
+Xvfb "$DISPLAY" -screen 0 "${COURSE_DESKTOP_SIZE:-1600x900x24}" -ac -nolisten tcp +extension GLX +render -noreset &
+for _ in $(seq 1 50); do
+  xdpyinfo -display "$DISPLAY" >/dev/null 2>&1 && break
+  sleep 0.1
+done
+
+dbus-run-session fluxbox >/tmp/fluxbox.log 2>&1 &
+x11vnc -display "$DISPLAY" -forever -shared -nopw -rfbport 5900 >/tmp/x11vnc.log 2>&1 &
+websockify --web=/usr/share/novnc 6080 localhost:5900 >/tmp/novnc.log 2>&1 &
+
+xterm -display "$DISPLAY" -T "Robotics course environment" -geometry 120x34+20+20 -e bash -lc \
+  'printf "\nROS 2 Jazzy course environment\n\nRun: course-lab week01_ros_foundations\nSee: /workspace/ROS_DOCKER_SETUP.md\n\n"; cd /workspace; exec bash' &
+
+trap 'jobs -p | xargs -r kill' EXIT INT TERM
+tail -f /dev/null &
+wait $!

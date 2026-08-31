@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+lab="${1:-}"
+case "$lab" in
+  week01_ros_foundations) domain=24 ;;
+  week03_motion_frames_ai) domain=25 ;;
+  week06_slam_localization) domain=26 ;;
+  week08_vision_perception) domain=28 ;;
+  week09_planning_navigation) domain=29 ;;
+  week11_hri_evaluation) domain=31 ;;
+  *) echo "Usage: course-lab {week01_ros_foundations|week03_motion_frames_ai|week06_slam_localization|week08_vision_perception|week09_planning_navigation|week11_hri_evaluation}" >&2; exit 2 ;;
+esac
+
+root="/workspace/$lab"
+setup="$root/ros2_ws/install/setup.bash"
+if [[ ! -f "$setup" ]]; then
+  echo "$lab has not been built. Run course-build-workspaces first." >&2
+  exit 3
+fi
+
+source /opt/ros/jazzy/setup.bash
+source "$setup"
+export ROS_DOMAIN_ID="$domain"
+export TURTLEBOT3_MODEL=burger
+
+pid_file=/tmp/course-streamlit.pid
+if [[ -f "$pid_file" ]]; then
+  old_pid="$(cat "$pid_file")"
+  if kill -0 "$old_pid" 2>/dev/null; then kill "$old_pid"; fi
+  rm -f "$pid_file"
+fi
+
+(cd "$root" && nohup /opt/course-venv/bin/python -m streamlit run app.py \
+  --server.address=0.0.0.0 --server.port=8501 --server.headless=true \
+  >/tmp/course-streamlit.log 2>&1 & echo $! >"$pid_file")
+
+DISPLAY="${DISPLAY:-:1}" nohup xterm -display "${DISPLAY:-:1}" -T "$lab" -geometry 120x34+70+70 -e bash -lc \
+  "source /opt/ros/jazzy/setup.bash; source '$setup'; export ROS_DOMAIN_ID='$domain'; export TURTLEBOT3_MODEL=burger; cd '$root'; printf '\nActive lab: $lab\nROS_DOMAIN_ID=$domain\n\n'; exec bash" >/tmp/course-xterm.log 2>&1 &
+
+echo "Started $lab"
+echo "Guide:  http://localhost:8501"
+echo "Desktop: http://localhost:6080/vnc.html?autoconnect=1&resize=remote"

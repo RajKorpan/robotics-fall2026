@@ -12,39 +12,30 @@ This individual lab moves from raw ROS velocity commands to reasoning about pose
 6. Use an AI assistant for an individually assigned motion-pattern node.
 7. Preserve the original output, test it, revise it, and explain why the final code is correct.
 
-## Supported environment
+## Shared ROS environment
 
-- Ubuntu 24.04
-- ROS 2 Jazzy
-- TurtleBot3 simulation packages
-- Gazebo and RViz
-- `tf2_ros` and `tf2_tools`
-- Python 3 using the ROS system interpreter
+Use the course container configured once in Week 1; do not reinstall ROS or Python packages. It provides ROS 2 Jazzy, TurtleBot3, Gazebo, RViz, `tf2_ros`, `tf2_tools`, and Streamlit on Windows, macOS, and Linux. See [`../ROS_DOCKER_SETUP.md`](../ROS_DOCKER_SETUP.md). Native Ubuntu 24.04 remains an optional performance fallback.
 
-## Setup and run
+## Start the lab
 
-```bash
-cd week03_motion_frames_ai
-python3 -m pip install --user -r requirements.txt
-chmod +x scripts/*.sh
-export ROS_DOMAIN_ID=24
-./scripts/course_preflight.sh
+```powershell
+.\scripts\ros_course.ps1 lab week03_motion_frames_ai
 ```
 
-Launch ROS in one terminal:
+or on macOS/Linux:
 
 ```bash
-export ROS_DOMAIN_ID=24
-./scripts/launch_lab.sh
+./scripts/ros_course.sh lab week03_motion_frames_ai
 ```
 
-Launch the guide in another:
+The guide opens at `http://localhost:8501`. In the browser desktop terminal, run:
 
 ```bash
-python3 -m streamlit run app.py
+bash scripts/course_preflight.sh
+bash scripts/launch_lab.sh
 ```
 
-Use a distinct `ROS_DOMAIN_ID` for every simultaneously running student or computer.
+The shared launcher selects `ROS_DOMAIN_ID=25` and sources this lab's built workspace.
 
 ## Mission commands
 
@@ -73,7 +64,7 @@ After building, run and evaluate the assigned pattern:
 
 ```bash
 python3 scripts/run_assigned_pattern.py
-./scripts/evaluate_ai_pattern.sh
+bash scripts/evaluate_ai_pattern.sh
 ```
 
 The evaluator checks test count, velocity bounds, pattern geometry, a completed ROS run, final stop behavior, and whether the final source differs from the preserved AI output.
@@ -109,4 +100,3 @@ git add student_submission ros2_ws/src/week03_pattern
 git commit -m "Submit Week 3 motion, frames, and AI lab"
 git push
 ```
-

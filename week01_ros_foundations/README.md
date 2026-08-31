@@ -1,6 +1,6 @@
 # Week 1: Discovering a Robot Through ROS 2
 
-This individual lab teaches ROS 2 by having each student inspect, control, and extend a simulated TurtleBot3 system. Installation is treated as a precondition rather than the learning objective.
+This individual lab teaches ROS 2 by having each student inspect, control, and extend a simulated TurtleBot3 system. Week 1 includes the one-time setup of the shared course container, but installation troubleshooting is not the graded learning objective.
 
 ## Learning sequence
 
@@ -13,46 +13,64 @@ This individual lab teaches ROS 2 by having each student inspect, control, and e
 
 ## Supported environment
 
-- Ubuntu 24.04
-- ROS 2 Jazzy
-- TurtleBot3 simulation packages
-- Gazebo and RViz
-- Python 3 using the ROS system interpreter
+The recommended environment is the shared course Docker image on Windows, macOS, or Linux. It contains Ubuntu 24.04, ROS 2 Jazzy, TurtleBot3, Gazebo, RViz, colcon, and the Streamlit dependencies. Students configure it once in this lab and reuse it for Weeks 3, 6, 8, 9, and 11.
+
+Native Ubuntu 24.04 with ROS 2 Jazzy remains a supported performance fallback. Native ROS installation on Windows and macOS is not part of the supported course workflow.
 
 The ROS packages are deliberately separated from the Streamlit application. ROS writes machine-readable evidence to `runtime/evidence/`; Streamlit reads that evidence and creates the durable `student_submission/` record.
 
-## First-time instructor setup
+## One-time student setup — Windows, macOS, or Linux
 
-Install ROS 2 Jazzy, TurtleBot3 simulation dependencies, and the Python requirements. Then:
+Follow the complete platform instructions in [`../ROS_DOCKER_SETUP.md`](../ROS_DOCKER_SETUP.md). In summary:
 
-```bash
-cd week01_ros_foundations
-python3 -m pip install --user -r requirements.txt
-chmod +x scripts/*.sh
-export ROS_DOMAIN_ID=24
-./scripts/course_preflight.sh
+1. Install Docker Desktop on Windows/macOS, or Docker Engine plus Compose on Linux.
+2. Clone this repository.
+3. From the repository root, build the shared image and all six ROS workspaces.
+
+Windows PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\ros_course.ps1 setup
+.\scripts\ros_course.ps1 lab week01_ros_foundations
 ```
 
-Use a unique `ROS_DOMAIN_ID` for each simultaneously running student or machine.
-
-## Run the lab
-
-Terminal 1:
+macOS/Linux:
 
 ```bash
-cd week01_ros_foundations
-export ROS_DOMAIN_ID=24
-./scripts/launch_lab.sh
+chmod +x scripts/ros_course.sh
+./scripts/ros_course.sh setup
+./scripts/ros_course.sh lab week01_ros_foundations
 ```
 
-Terminal 2:
+Open the browser desktop at `http://localhost:6080/vnc.html?autoconnect=1&resize=remote` and the guide at `http://localhost:8501`. The first command downloads the course environment and builds all later ROS labs; do not repeat it every week.
+
+Inside the browser desktop's Week 1 terminal, verify the environment:
 
 ```bash
-cd week01_ros_foundations
-python3 -m streamlit run app.py
+bash scripts/course_preflight.sh
 ```
 
-Open the local URL printed by Streamlit.
+## Run the lab after initial setup
+
+Start or reopen Week 1 from the host:
+
+```powershell
+.\scripts\ros_course.ps1 lab week01_ros_foundations
+```
+
+or on macOS/Linux:
+
+```bash
+./scripts/ros_course.sh lab week01_ros_foundations
+```
+
+In the browser desktop terminal:
+
+```bash
+bash scripts/launch_lab.sh
+```
+
+The course launcher already sources ROS, selects `ROS_DOMAIN_ID=24`, sets the TurtleBot3 model, changes into the lab directory, and starts Streamlit.
 
 ## Mission 3 starter behavior
 
@@ -66,7 +84,7 @@ Students implement the pure decision helpers and may add tests. The ROS wrapper 
 Run its checks with:
 
 ```bash
-./scripts/evaluate_behavior.sh
+bash scripts/evaluate_behavior.sh
 ```
 
 The evaluator exits unsuccessfully until the student implementation passes all required safety scenarios.
@@ -125,4 +143,3 @@ export WEEK01_INSTRUCTOR_PASSWORD="your-password"
 ```
 
 Instructor navigation bypasses page order but does not fabricate mission evidence.
-

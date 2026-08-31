@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source /opt/ros/jazzy/setup.bash
+labs=(
+  week01_ros_foundations
+  week03_motion_frames_ai
+  week06_slam_localization
+  week08_vision_perception
+  week09_planning_navigation
+  week11_hri_evaluation
+)
+
+for lab in "${labs[@]}"; do
+  workspace="/workspace/$lab/ros2_ws"
+  if [[ ! -d "$workspace/src" ]]; then
+    echo "Missing workspace: $workspace" >&2
+    exit 2
+  fi
+  echo "Building $lab"
+  (cd "$workspace" && colcon build --symlink-install)
+done
+
+echo "All six ROS lab workspaces built successfully."
+

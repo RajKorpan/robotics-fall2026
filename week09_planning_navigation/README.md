@@ -13,11 +13,9 @@ An individual ROS 2 + Streamlit lab in which students use Nav2 to distinguish a 
 
 Nav2 exposes path computation through [`ComputePathToPose`](https://docs.ros.org/en/ros2_packages/jazzy/api/nav2_msgs/action/ComputePathToPose.html) and goal execution through [`NavigateToPose`](https://docs.ros.org/en/ros2_packages/jazzy/api/nav2_msgs/action/NavigateToPose.html). Its costmap filters can annotate keepout/preferred regions and speed-restriction regions; see the official [costmap-filter tutorial](https://docs.nav2.org/tutorials/docs/navigation2_with_keepout_filter.html) and [Costmap Filter Info Server parameters](https://docs.nav2.org/configuration/packages/map_server/configuring-costmap-filter-info-server.html).
 
-## Supported environment
+## Shared ROS environment
 
-- Ubuntu 24.04 and ROS 2 Jazzy
-- TurtleBot3 simulation, RViz, Nav2, and the map saved in Week 6
-- Python 3.10+ and Streamlit
+Use the course container configured once in Week 1. It provides ROS 2 Jazzy, TurtleBot3 simulation, RViz, Nav2, and Streamlit on Windows, macOS, and Linux. The Week 6 saved map persists through the repository bind mount. See [`../ROS_DOCKER_SETUP.md`](../ROS_DOCKER_SETUP.md).
 
 ## Instructor preparation
 
@@ -47,14 +45,26 @@ chmod +x scripts/*.sh scripts/*.py
 
 ## Run the lab
 
-```bash
-cd week09_planning_navigation
-export ROS_DOMAIN_ID=29
-export TURTLEBOT3_MODEL=burger
-./scripts/course_preflight.sh
-./scripts/launch_navigation.sh /absolute/path/to/week06_map.yaml
-python3 -m streamlit run app.py
+Windows:
+
+```powershell
+.\scripts\ros_course.ps1 lab week09_planning_navigation
 ```
+
+macOS/Linux:
+
+```bash
+./scripts/ros_course.sh lab week09_planning_navigation
+```
+
+In the browser desktop terminal:
+
+```bash
+bash scripts/course_preflight.sh
+bash scripts/launch_navigation.sh /absolute/path/to/week06_map.yaml
+```
+
+The guide is at `http://localhost:8501`; the launcher selects `ROS_DOMAIN_ID=29` and sources the Week 9 workspace.
 
 The launcher starts TurtleBot3 World plus its navigation launch using the supplied map. The instructor should adjust `course_navigation.launch.py` if the course distributes a different simulator/world.
 
@@ -113,4 +123,3 @@ python3 -m compileall -q .
 ```
 
 ROS integration additionally requires `colcon build --symlink-install` in `ros2_ws`.
-

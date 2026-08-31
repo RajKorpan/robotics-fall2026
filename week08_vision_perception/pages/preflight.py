@@ -3,8 +3,8 @@ from pathlib import Path
 from lab.evidence import load_json
 from lab.navigation import set_stage
 def render(st):
-    st.header("ROS 2 preflight");st.write("Use Ubuntu 24.04 with ROS 2 Jazzy. The instructor course image must already contain the frozen ONNX detector and label file.")
-    st.code("cd week08_vision_perception/ros2_ws\nsource /opt/ros/jazzy/setup.bash\ncolcon build --symlink-install\ncd ..\nexport ROS_DOMAIN_ID=28\nchmod +x scripts/*.sh\n./scripts/course_preflight.sh",language="bash")
+    st.header("ROS 2 preflight");st.write("Use the shared course container configured in Week 1. The launcher selects `ROS_DOMAIN_ID=28` and sources the Week 8 workspace. The instructor image/release must also provide the frozen ONNX detector and label file.")
+    st.code("bash scripts/course_preflight.sh",language="bash")
     runtime=Path(__file__).resolve().parents[1]/"runtime"/"evidence"/"preflight.json";evidence=None
     if runtime.exists():
         try:evidence=json.loads(runtime.read_text(encoding="utf-8"))

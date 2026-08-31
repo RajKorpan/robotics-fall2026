@@ -6,7 +6,7 @@ from lab.navigation import set_stage
 
 def render(st) -> None:
     st.title("Environment preflight")
-    st.code("./scripts/course_preflight.sh", language="bash")
+    st.code("bash scripts/course_preflight.sh", language="bash")
     result = preflight()
     checks = result.get("checks", [])
     if checks:
@@ -20,4 +20,3 @@ def render(st) -> None:
         st.rerun()
     if st.button("Continue to Mission 1", type="primary", disabled=not ready):
         set_stage(st, "mission_1")
-

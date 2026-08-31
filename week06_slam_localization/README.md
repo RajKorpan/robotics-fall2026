@@ -11,19 +11,13 @@ An individual ROS 2 and Streamlit lab in which students operate established SLAM
 5. **Mission 3 — Localize:** run AMCL against the saved map with a good initial pose, an incorrect pose, an ambiguous location, and a degraded scan.
 6. **Final synthesis:** answer what it means for the robot to “know where it is” using evidence from the runs.
 
-## Supported environment
+## Shared ROS environment
 
-- Ubuntu 24.04
-- ROS 2 Jazzy
-- TurtleBot3 Burger simulation and teleoperation packages
-- `slam_toolbox`
-- Navigation2, `nav2_map_server`, and AMCL
-- Gazebo and RViz
-- Python 3.10 or newer
+Use the course container configured once in Week 1. It already contains ROS 2 Jazzy, TurtleBot3 simulation/teleoperation, SLAM Toolbox, Navigation2, map server, AMCL, Gazebo, RViz, and Streamlit on Windows, macOS, and Linux. See [`../ROS_DOCKER_SETUP.md`](../ROS_DOCKER_SETUP.md). Native Ubuntu 24.04 remains an optional performance fallback.
 
 The package and command choices follow the current [TurtleBot3 simulation and SLAM workflow](https://emanual.robotis.com/docs/en/platform/turtlebot3/slam_simulation/) and [Nav2 map-server interface](https://docs.ros.org/en/jazzy/p/nav2_map_server/).
 
-## Instructor setup
+## Instructor/native fallback setup
 
 Install the ROS dependencies, clone/build TurtleBot3 Jazzy simulation if it is not distributed on the course image, then build the supplied package:
 
@@ -40,18 +34,27 @@ chmod +x scripts/*.sh
 
 The official TurtleBot3 instructions describe the additional Jazzy source packages required when TurtleBot3 is not preinstalled: [TurtleBot3 Quick Start](https://emanual.robotis.com/docs/en/platform/turtlebot3/quick-start/).
 
-## Run
+## Run in the shared course container
 
-Choose a different domain ID for every concurrently running student or machine.
+Windows:
 
-```bash
-cd week06_slam_localization
-export ROS_DOMAIN_ID=26
-./scripts/course_preflight.sh
-python3 -m streamlit run app.py
+```powershell
+.\scripts\ros_course.ps1 lab week06_slam_localization
 ```
 
-The Streamlit guide provides the exact commands for each mission. `scripts/launch_mapping.sh` starts the simulation and asynchronous SLAM. `scripts/launch_localization.sh` starts normal or degraded-scan localization. The supplied map analyzer and localization recorder produce the JSON evidence consumed by the guide.
+macOS/Linux:
+
+```bash
+./scripts/ros_course.sh lab week06_slam_localization
+```
+
+Then, in the browser desktop terminal:
+
+```bash
+bash scripts/course_preflight.sh
+```
+
+The guide is at `http://localhost:8501`. The launcher selects `ROS_DOMAIN_ID=26`. The Streamlit guide provides the exact commands for each mission. `scripts/launch_mapping.sh` starts the simulation and asynchronous SLAM. `scripts/launch_localization.sh` starts normal or degraded-scan localization. The supplied map analyzer and localization recorder produce the JSON evidence consumed by the guide.
 
 ## Safety and experimental controls
 

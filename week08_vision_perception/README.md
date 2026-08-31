@@ -13,15 +13,9 @@ An individual ROS 2 and Streamlit lab comparing classical color/contour detectio
 
 The implementation uses the standard ROS [`sensor_msgs/Image`](https://docs.ros.org/en/ros2_packages/jazzy/api/sensor_msgs/msg/Image.html) interface. ROS documentation recommends `image_transport` for production image streams; the course Python nodes subscribe to raw `sensor_msgs/Image` so the processing logic remains visible, while recorded or compressed transport may be selected outside the node when needed. See the official [`image_transport` documentation](https://docs.ros.org/en/jazzy/p/image_transport/index.html).
 
-## Supported environment
+## Shared ROS environment
 
-- Ubuntu 24.04 and ROS 2 Jazzy
-- Python 3.10+
-- OpenCV and NumPy
-- `cv_bridge`, `image_view`, and `image_publisher`
-- A ROS camera topic, supplied rosbag, or generated condition bank
-- Instructor-provided frozen COCO ONNX model
-- Streamlit
+Use the course container configured once in Week 1. It provides ROS 2 Jazzy, OpenCV/NumPy, `cv_bridge`, `image_view`, `image_publisher`, colcon, and Streamlit on Windows, macOS, and Linux. See [`../ROS_DOCKER_SETUP.md`](../ROS_DOCKER_SETUP.md). The instructor still distributes the frozen COCO ONNX model and any required camera rosbag.
 
 ## Instructor setup
 
@@ -49,24 +43,37 @@ The instructor should additionally distribute one recorded learned-detector cond
 
 ## Run the guide
 
-```bash
-cd week08_vision_perception
-export ROS_DOMAIN_ID=28
-./scripts/course_preflight.sh
-python3 -m streamlit run app.py
+Windows:
+
+```powershell
+.\scripts\ros_course.ps1 lab week08_vision_perception
 ```
+
+macOS/Linux:
+
+```bash
+./scripts/ros_course.sh lab week08_vision_perception
+```
+
+Then, in the browser desktop terminal:
+
+```bash
+bash scripts/course_preflight.sh
+```
+
+The guide is at `http://localhost:8501`; the launcher selects `ROS_DOMAIN_ID=28` and sources the Week 8 workspace.
 
 Detector-only mode is the default and does not start behavior:
 
 ```bash
-./scripts/launch_pipeline.sh classical /camera/image_raw
-./scripts/launch_pipeline.sh learned /camera/image_raw
+bash scripts/launch_pipeline.sh classical /camera/image_raw
+bash scripts/launch_pipeline.sh learned /camera/image_raw
 ```
 
 Behavior must be enabled explicitly and should be used only in simulation:
 
 ```bash
-./scripts/launch_pipeline.sh learned /camera/image_raw true
+bash scripts/launch_pipeline.sh learned /camera/image_raw true
 ```
 
 ## ROS graph
