@@ -1,0 +1,23 @@
+# Merge these entries into the corresponding global/local costmap ros__parameters
+# in your robot-specific Nav2 parameter file. Do not replace that complete file
+# with this fragment.
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      filters: ["keepout_filter"]
+      keepout_filter:
+        plugin: "nav2_costmap_2d::KeepoutFilter"
+        enabled: true
+        filter_info_topic: "/keepout_costmap_filter_info"
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      filters: ["speed_filter"]
+      speed_filter:
+        plugin: "nav2_costmap_2d::SpeedFilter"
+        enabled: true
+        filter_info_topic: "/speed_costmap_filter_info"
+
+# Instructor note: run one nav2_map_server/map_server per mask and one
+# nav2_map_server/costmap_filter_info_server per filter. Use type 0 for the
+# keepout mask and type 1 (percentage) or 2 (absolute m/s) for the speed mask.

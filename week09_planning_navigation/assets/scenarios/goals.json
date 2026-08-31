@@ -1,0 +1,12 @@
+{
+  "frame_id": "map",
+  "note": "Instructor: replace poses only if the distributed course map changes; keep identifiers stable.",
+  "goals": [
+    {"goal_id": "open_short", "x": 0.5, "y": 0.0, "yaw": 0.0, "expected_reachable": true, "question": "Is the shortest path also well cleared?"},
+    {"goal_id": "detour", "x": 1.6, "y": 0.8, "yaw": 1.57, "expected_reachable": true, "question": "Where does obstacle inflation change the route?"},
+    {"goal_id": "narrow", "x": -0.8, "y": 1.2, "yaw": 3.14, "expected_reachable": true, "question": "How much clearance remains in the narrow passage?"},
+    {"goal_id": "occupied_goal", "x": 0.9, "y": -0.4, "yaw": 0.0, "expected_reachable": false, "question": "How does Nav2 report a goal inside an occupied cell?"},
+    {"goal_id": "blocked_goal", "x": -2.0, "y": -2.0, "yaw": 0.0, "expected_reachable": false, "question": "What evidence distinguishes impossible from slow?"}
+  ]
+}
+

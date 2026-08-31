@@ -1,0 +1,5 @@
+streamlit>=1.58
+numpy>=1.26
+opencv-python>=4.9
+pandas>=2.0
+matplotlib>=3.8

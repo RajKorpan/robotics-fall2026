@@ -1,0 +1,8 @@
+week11_interaction_demo:
+  ros__parameters:
+    motion_enabled: false
+    approach_speed_mps: 0.08
+    confirmation_required: true
+    timeout_s: 18.0
+    intent_message: "I will move closer, stop one meter away, then ask for a command. Press STOP at any time."
+    listening_message: "LISTENING — type a request or choose Cancel. I will repeat it before acting."

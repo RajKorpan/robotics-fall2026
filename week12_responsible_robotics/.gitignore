@@ -1,0 +1,6 @@
+.streamlit/
+__pycache__/
+.pytest_cache/
+student_submission/*
+!student_submission/.gitkeep
+

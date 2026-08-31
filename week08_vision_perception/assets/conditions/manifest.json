@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "target": "course target",
+  "conditions": [
+    {"id": "normal", "expected": true, "change": "normal lighting and front view"},
+    {"id": "dim", "expected": true, "change": "reduced illumination"},
+    {"id": "glare", "expected": true, "change": "bright highlight and reduced saturation"},
+    {"id": "far", "expected": true, "change": "small apparent target area"},
+    {"id": "occluded", "expected": true, "change": "approximately 40 percent occlusion"},
+    {"id": "rotated", "expected": true, "change": "unusual orientation"},
+    {"id": "cluttered", "expected": true, "change": "target among unrelated objects"},
+    {"id": "distractor", "expected": false, "change": "similar color or category but wrong object"}
+  ]
+}

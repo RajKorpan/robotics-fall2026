@@ -1,0 +1,11 @@
+std_msgs/Header header
+bool detected
+string label
+float32 confidence
+float32 center_offset
+float32 area_fraction
+float32 latency_ms
+uint32 bbox_x
+uint32 bbox_y
+uint32 bbox_width
+uint32 bbox_height

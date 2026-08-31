@@ -8,6 +8,11 @@ Interactive teaching labs for CSCI 39536: Introduction to Robotics.
 - `week03_motion_frames_ai/` — individual ROS 2 lab for motion prediction, TF reasoning, and verified AI-assisted development.
 - `week05_sensors_uncertainty/` — individual, self-contained lab for sensor characterization, filtering, fusion, and decisions under uncertainty.
 - `week06_slam_localization/` — individual ROS 2 lab for mapping, exploration-strategy comparison, and localization under difficult conditions.
+- `week08_vision_perception/` — individual ROS 2 lab comparing classical and learned vision and connecting perception to bounded behavior.
+- `week09_planning_navigation/` — individual ROS 2 lab for path inspection, repeatable Nav2 trials, and a human-aware navigation redesign.
+- `week10_foundation_models/` — individual, self-contained lab for evaluating foundation-model plans and visual interpretations through a safety verification layer.
+- `week11_hri_evaluation/` — individual ROS 2 lab using paired participation for baseline interaction evaluation, evidence-driven redesign, and matched retesting.
+- `week12_responsible_robotics/` — individual, self-contained lab translating privacy, fairness, safety, accessibility, and human-control requirements into tested system behavior.
 - `week04_pid_odometry/` — Week 4 PID control and odometry lab.
 - `week14_pendulum_rl/` — Week 14 reinforcement-learning pendulum lab.
 - `lab-template/` — reusable architecture for additional labs.

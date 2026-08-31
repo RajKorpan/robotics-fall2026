@@ -1,0 +1,11 @@
+{
+  "scenario_id": "seated_person_corridor",
+  "policy_note": "These are measurable course requirements for this scenario, not universal claims about culturally appropriate distance.",
+  "required_clearance_m": 0.75,
+  "maximum_nearby_speed_mps": 0.12,
+  "monitor_radius_m": 1.2,
+  "people": [
+    {"id": "seated_person", "x": 0.45, "y": 0.15, "radius_m": 0.25},
+    {"id": "standing_person", "x": 1.15, "y": 0.85, "radius_m": 0.25}
+  ]
+}

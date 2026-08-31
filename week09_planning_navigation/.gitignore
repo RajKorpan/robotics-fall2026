@@ -1,0 +1,10 @@
+.streamlit/
+__pycache__/
+.pytest_cache/
+runtime/
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+student_submission/*
+!student_submission/.gitkeep
+

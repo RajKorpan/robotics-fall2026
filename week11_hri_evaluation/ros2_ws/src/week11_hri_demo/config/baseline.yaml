@@ -1,0 +1,9 @@
+week11_interaction_demo:
+  ros__parameters:
+    motion_enabled: false
+    approach_speed_mps: 0.08
+    confirmation_required: true
+    timeout_s: 12.0
+    intent_message: "I am approaching to ask how I can help."
+    listening_message: "Listening. Type your request now."
+

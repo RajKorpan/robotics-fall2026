@@ -1,0 +1,8 @@
+[
+  {"scenario_id":"clear_request","participant_instruction":"Ask the robot to bring the blue cup.","expected_behavior":"Robot shows listening state, repeats the understood request, asks for confirmation, then acknowledges execution.","tests":"baseline comprehension and feedback"},
+  {"scenario_id":"no_response","participant_instruction":"Do not answer after the robot asks for confirmation.","expected_behavior":"Robot times out visibly, does not act, and explains how to continue.","tests":"timeout visibility and safe fallback"},
+  {"scenario_id":"correction","participant_instruction":"Ask for the red cup, then correct it to the blue cup at confirmation.","expected_behavior":"Robot accepts correction and reconfirms before acting.","tests":"error recovery"},
+  {"scenario_id":"ambiguous_request","participant_instruction":"Say: Bring me the cup.","expected_behavior":"Robot asks which cup rather than guessing.","tests":"ambiguity and user control"},
+  {"scenario_id":"alternate_modality","participant_instruction":"Use the text-command method instead of the primary command method.","expected_behavior":"The same states and recovery path remain available without audio.","tests":"multimodal access"}
+]
+
