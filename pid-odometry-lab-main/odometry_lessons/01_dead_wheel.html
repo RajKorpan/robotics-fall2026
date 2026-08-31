@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Meet the Dead Wheel</title>
+<style>
+  :root{
+    --bg:#0f172a; --ink:#182230; --muted:#475467; --accent:#2563eb;
+    --orange:#f79009; --green:#12b76a; --red:#e11d48; --purple:#7c3aed;
+    --card:#ffffff; --border:#d0d5dd;
+  }
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+    color:var(--ink);
+    background:#f8fafc;
+  }
+  .wrap{display:flex;flex-direction:column;gap:8px;padding:8px;}
+  .card{
+    background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:8px 14px;box-sizing:border-box;
+  }
+  .header{display:flex;flex-direction:column;justify-content:center;height:55px;padding:6px 14px;}
+  .header h1{margin:0;font-size:18px;color:var(--ink);font-weight:650;}
+  .header p{margin:2px 0 0 0;font-size:12px;color:var(--muted);}
+  .chapters{display:flex;gap:8px;align-items:center;height:40px;padding:4px 8px;}
+  .chapters button{
+    flex:1;height:32px;border-radius:6px;border:1px solid var(--border);
+    background:#fff;color:var(--ink);font-size:13px;font-weight:500;cursor:pointer;
+    font-family:inherit;transition:background .18s,color .18s,border-color .18s;
+  }
+  .chapters button:hover{background:#f1f5f9;}
+  .chapters button.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .canvas-card{padding:0;overflow:hidden;height:440px;}
+  canvas{display:block;width:100%;height:100%;}
+  .controls{display:flex;gap:10px;align-items:center;height:40px;padding:4px 12px;}
+  .controls button{
+    height:30px;padding:0 14px;border-radius:6px;border:1px solid var(--border);
+    background:#fff;color:var(--ink);font-size:13px;cursor:pointer;font-family:inherit;
+  }
+  .controls button:hover{background:#f1f5f9;}
+  .controls .spacer{flex:1;}
+  .controls label{font-size:12px;color:var(--muted);}
+  .controls input[type=range]{width:130px;}
+  .explainer{min-height:60px;font-size:13px;line-height:1.45;color:var(--ink);padding:10px 14px;}
+  .explainer strong{color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card header">
+    <h1>Meet the tracking wheel</h1>
+    <p>A passive wheel records ground travel directly.</p>
+  </div>
+  <div class="card chapters">
+    <button data-ch="0" class="active">1. Why powered wheels slip</button>
+    <button data-ch="1">2. The dead wheel solution</button>
+  </div>
+  <div class="card canvas-card">
+    <canvas id="c"></canvas>
+  </div>
+  <div class="card controls">
+    <button id="pp">Pause</button>
+    <button id="rs">Reset</button>
+    <div class="spacer"></div>
+    <label>Speed</label>
+    <input id="sp" type="range" min="0.25" max="2" step="0.05" value="1">
+  </div>
+  <div class="card explainer" id="ex"></div>
+</div>
+<script>
+(function(){
+  const canvas=document.getElementById('c');
+  const ctx=canvas.getContext('2d');
+  const ppBtn=document.getElementById('pp');
+  const rsBtn=document.getElementById('rs');
+  const spSlider=document.getElementById('sp');
+  const ex=document.getElementById('ex');
+  const chapterBtns=document.querySelectorAll('.chapters button');
+
+  let W=800,H=440;
+  function resize(){
+    const r=canvas.getBoundingClientRect();
+    const dpr=window.devicePixelRatio||1;
+    W=r.width; H=r.height;
+    canvas.width=W*dpr; canvas.height=H*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  window.addEventListener('resize',resize);
+
+  let chapter=0;
+  let chapterTime=0;
+  let chapterFade=1;
+  let fadeDir=0;
+  let paused=false;
+  let speed=1;
+  const CHAPTER_LEN=16;
+  let last=performance.now();
+  let pendingChapter=-1;
+
+  const explainerText=[
+    "<strong>Chapter 1.</strong> The motor <em>pushes</em> the drive wheel. Any time push exceeds grip &mdash; a jerky start, a bump, dust, or squishy carpet &mdash; the wheel spins more than it rolls. The encoder counts those extra spins as distance. Your robot thinks it moved farther than it did.",
+    "<strong>Chapter 2.</strong> A <strong>dead wheel</strong> is a small unpowered wheel on a spring-loaded arm, with its own encoder. No motor pushes it, so nothing can force it to slip &mdash; it just rolls along with the ground. Its encoder reads the true distance. Most competition robots use 2 or 3 dead wheels: two for X/Y, one for heading."
+  ];
+
+  function setChapter(i,instant){
+    if(instant){
+      chapter=i; chapterTime=0; chapterFade=1; fadeDir=0;
+      resetChapterState(i);
+    } else {
+      fadeDir=-1;
+      pendingChapter=i;
+    }
+    chapterBtns.forEach((b,idx)=>b.classList.toggle('active',idx===i));
+    ex.innerHTML=explainerText[i];
+  }
+
+  function resetChapterState(i){
+    if(i===0){ ch2Angle=0; ch2X=0; ch2Encoder=0; ch2True=0; }
+    if(i===1){ ch3RobotX=0; ch3DriveA=0; ch3DeadA=0; ch3DriveEnc=0; ch3DeadEnc=0; ch3LastRobotX=0; ch3TwitchFlash=0; }
+  }
+
+  chapterBtns.forEach(b=>{
+    b.addEventListener('click',()=>{ setChapter(parseInt(b.dataset.ch,10),true); });
+  });
+  ppBtn.addEventListener('click',()=>{
+    paused=!paused;
+    ppBtn.textContent=paused?'Play':'Pause';
+    if(!paused){ last=performance.now(); requestAnimationFrame(loop); }
+  });
+  rsBtn.addEventListener('click',()=>{ chapterTime=0; resetChapterState(chapter); });
+  spSlider.addEventListener('input',()=>{ speed=parseFloat(spSlider.value); });
+
+  function grid(){
+    ctx.fillStyle='#0f172a';
+    ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='rgba(255,255,255,0.04)';
+    ctx.lineWidth=1;
+    const s=28;
+    for(let x=0;x<W;x+=s){ ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke(); }
+    for(let y=0;y<H;y+=s){ ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke(); }
+  }
+
+  function roundRect(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+    ctx.closePath();
+  }
+
+  function label(text,x,y,px,py,color){
+    color=color||'#ffffff';
+    ctx.textAlign='left';
+    ctx.font='13px "Segoe UI",system-ui,sans-serif';
+    const metrics=ctx.measureText(text);
+    const w=metrics.width+16, h=24;
+    if(px!=null){
+      ctx.strokeStyle='rgba(208,213,221,0.7)';
+      ctx.lineWidth=1;
+      const cx=x+w/2, cy=y+h/2;
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(px,py); ctx.stroke();
+      const ang=Math.atan2(py-cy,px-cx);
+      ctx.beginPath();
+      ctx.moveTo(px,py);
+      ctx.lineTo(px-8*Math.cos(ang-0.4),py-8*Math.sin(ang-0.4));
+      ctx.lineTo(px-8*Math.cos(ang+0.4),py-8*Math.sin(ang+0.4));
+      ctx.closePath();
+      ctx.fillStyle='rgba(208,213,221,0.85)';
+      ctx.fill();
+    }
+    ctx.fillStyle='rgba(15,23,42,0.88)';
+    roundRect(x,y,w,h,6); ctx.fill();
+    ctx.strokeStyle='rgba(208,213,221,0.35)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=color;
+    ctx.textBaseline='middle';
+    ctx.fillText(text,x+8,y+h/2+1);
+    return {w,h};
+  }
+
+  function bigCallout(text,x,y,color,maxW){
+    color=color||'#ffffff';
+    ctx.textAlign='left';
+    ctx.font='600 16px "Segoe UI",system-ui,sans-serif';
+    maxW=maxW||360;
+    const words=text.split(' ');
+    let lines=[]; let cur='';
+    for(const w of words){
+      const t=cur?cur+' '+w:w;
+      if(ctx.measureText(t).width>maxW-24){ lines.push(cur); cur=w; }
+      else cur=t;
+    }
+    if(cur) lines.push(cur);
+    const lh=22, h=lines.length*lh+16;
+    let w=0;
+    for(const ln of lines){ w=Math.max(w,ctx.measureText(ln).width); }
+    w+=24;
+    ctx.fillStyle='rgba(15,23,42,0.9)';
+    roundRect(x,y,w,h,8); ctx.fill();
+    ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle=color;
+    ctx.textBaseline='top';
+    lines.forEach((ln,i)=>ctx.fillText(ln,x+12,y+8+i*lh));
+    return {w,h};
+  }
+
+  function drawWheel(cx,cy,r,a,opts){
+    opts=opts||{};
+    ctx.save();
+    ctx.translate(cx,cy); ctx.rotate(a);
+    ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2);
+    ctx.fillStyle=opts.tire||'#1f2937'; ctx.fill();
+    ctx.lineWidth=2; ctx.strokeStyle='#334155'; ctx.stroke();
+    const treads=16;
+    ctx.strokeStyle='#0f172a';
+    ctx.lineWidth=Math.max(2,r*0.08);
+    for(let i=0;i<treads;i++){
+      const th=i*(Math.PI*2/treads);
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(th)*(r-1),Math.sin(th)*(r-1));
+      ctx.lineTo(Math.cos(th)*(r-Math.max(4,r*0.18)),Math.sin(th)*(r-Math.max(4,r*0.18)));
+      ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(0,0,r*0.45,0,Math.PI*2);
+    ctx.fillStyle=opts.hub||'#e2e8f0'; ctx.fill();
+    ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.strokeStyle='#64748b'; ctx.lineWidth=2;
+    for(let i=0;i<5;i++){
+      const th=i*(Math.PI*2/5);
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.lineTo(Math.cos(th)*r*0.42,Math.sin(th)*r*0.42);
+      ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(0,0,Math.max(2,r*0.06),0,Math.PI*2);
+    ctx.fillStyle='#0f172a'; ctx.fill();
+    ctx.restore();
+  }
+
+  function drawMotor(x,y,w,h,color){
+    color=color||'#f79009';
+    ctx.fillStyle='#1e293b';
+    roundRect(x-w/2,y-h/2,w,h,4); ctx.fill();
+    ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle=color;
+    ctx.beginPath();
+    const gx=x+w/2-6, gy=y;
+    const teeth=8, ri=4, ro=7;
+    for(let i=0;i<teeth*2;i++){
+      const rr=(i%2===0)?ro:ri;
+      const th=i*Math.PI/teeth;
+      const px=gx+Math.cos(th)*rr, py=gy+Math.sin(th)*rr;
+      if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#1e293b';
+    ctx.beginPath(); ctx.arc(gx,gy,2,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=color;
+    ctx.font='bold 12px "Segoe UI",sans-serif';
+    ctx.textBaseline='middle'; ctx.textAlign='left';
+    ctx.fillText('M',x-w/2+6,y);
+  }
+
+  function drawEncoder(x,y,r,a,color){
+    color=color||'#7c3aed';
+    ctx.save();
+    ctx.translate(x,y); ctx.rotate(a);
+    ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2);
+    ctx.fillStyle=color; ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle='#0f172a';
+    const n=8;
+    for(let i=0;i<n;i++){
+      const th=i*(Math.PI*2/n);
+      ctx.beginPath();
+      ctx.arc(Math.cos(th)*(r*0.6),Math.sin(th)*(r*0.6),Math.max(1,r*0.16),0,Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ---------- CHAPTER 1 (was chapter 2) ----------
+  let ch2Angle=0, ch2X=0, ch2Encoder=0, ch2True=0;
+  function chapter2(dt){
+    const groundY=H*0.72;
+    const wheelR=64;
+    const wheelCy=groundY-wheelR;
+    const t=chapterTime;
+    let phase=0;
+    if(t<3.3) phase=0;
+    else if(t<6.6) phase=1;
+    else phase=2;
+
+    let motorSpin=0, groundMove=0;
+    if(phase===0){ motorSpin=280*speed; groundMove=35*speed; }
+    else if(phase===1){
+      const sub=(t-3.3)%1.1;
+      if(sub<0.2){ motorSpin=520*speed; groundMove=55*speed; }
+      else { motorSpin=110*speed; groundMove=100*speed; }
+    } else {
+      motorSpin=160*speed; groundMove=118*speed;
+    }
+    ch2Angle+=(motorSpin*dt)*Math.PI/180;
+    ch2X+=groundMove*dt;
+    const startX=200, endX=W-280;
+    const range=endX-startX;
+    if(ch2X>range) ch2X=0;
+    const wheelCx=startX+ch2X;
+    ch2Encoder+=motorSpin*dt*0.6;
+    ch2True+=groundMove*dt*0.6;
+
+    ctx.strokeStyle='#94a3b8'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(20,groundY); ctx.lineTo(W-20,groundY); ctx.stroke();
+
+    if(phase===2){
+      ctx.strokeStyle='rgba(124,58,237,0.5)';
+      ctx.lineWidth=1;
+      for(let x=20;x<W-20;x+=5){
+        ctx.beginPath(); ctx.moveTo(x,groundY);
+        ctx.lineTo(x+2,groundY+7+Math.sin(x*0.3+t*3)*2); ctx.stroke();
+      }
+    } else {
+      ctx.strokeStyle='rgba(148,163,184,0.3)';
+      ctx.lineWidth=1;
+      for(let x=20;x<W-20;x+=14){
+        ctx.beginPath(); ctx.moveTo(x,groundY); ctx.lineTo(x-8,groundY+10); ctx.stroke();
+      }
+    }
+
+    drawWheel(wheelCx,wheelCy,wheelR,ch2Angle);
+    drawMotor(wheelCx-wheelR-22,wheelCy,42,30);
+    ctx.strokeStyle='#64748b'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(wheelCx-wheelR-22+21,wheelCy);
+    ctx.lineTo(wheelCx,wheelCy); ctx.stroke();
+
+    if(phase===0 || phase===1){
+      ctx.strokeStyle='rgba(225,29,72,0.75)';
+      ctx.lineWidth=2;
+      for(let i=0;i<3;i++){
+        const yy=wheelCy-wheelR-10-i*7;
+        ctx.beginPath();
+        ctx.moveTo(wheelCx-wheelR*0.6,yy);
+        ctx.lineTo(wheelCx+wheelR*0.6,yy);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(wheelCx+wheelR*0.6,yy);
+        ctx.lineTo(wheelCx+wheelR*0.6-7,yy-4);
+        ctx.moveTo(wheelCx+wheelR*0.6,yy);
+        ctx.lineTo(wheelCx+wheelR*0.6-7,yy+4);
+        ctx.stroke();
+      }
+    }
+
+    if(phase===0){
+      ctx.fillStyle='rgba(225,29,72,0.55)';
+      for(let i=0;i<8;i++){
+        const rx=wheelCx-40+i*10;
+        ctx.beginPath(); ctx.arc(rx,groundY-2,4+Math.sin(t*10+i)*1.5,0,Math.PI*2); ctx.fill();
+      }
+      label('SLIP!',wheelCx-30,wheelCy-wheelR-90,wheelCx,wheelCy-wheelR-15,'#fecaca');
+    } else if(phase===1){
+      label('JERKY START',wheelCx-45,wheelCy-wheelR-90,wheelCx,wheelCy-wheelR-15,'#fecaca');
+    } else {
+      label('CARPET COMPRESSES',wheelCx-80,wheelCy-wheelR-90,wheelCx,wheelCy-wheelR-15,'#c4b5fd');
+    }
+
+    bigCallout('The motor pushes the wheel — so it can slip. Every slip means the encoder LIES about how far you moved.',
+      20,20,'#e11d48',W-40);
+
+    // counters
+    const boxW=250, boxH=64, gap=60;
+    const totalW=boxW*2+gap;
+    const bx=(W-totalW)/2, by=H-90;
+    ctx.fillStyle='rgba(15,23,42,0.92)';
+    roundRect(bx,by,boxW,boxH,8); ctx.fill();
+    ctx.strokeStyle='#e11d48'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#fecaca'; ctx.font='11px "Segoe UI",sans-serif';
+    ctx.textBaseline='top'; ctx.textAlign='left';
+    ctx.fillText('ENCODER SAYS',bx+12,by+8);
+    ctx.fillStyle='#fff'; ctx.font='bold 22px "Segoe UI",sans-serif';
+    ctx.fillText((ch2Encoder/10).toFixed(1)+' cm',bx+12,by+26);
+
+    const bx2=bx+boxW+gap;
+    ctx.fillStyle='rgba(15,23,42,0.92)';
+    roundRect(bx2,by,boxW,boxH,8); ctx.fill();
+    ctx.strokeStyle='#12b76a'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#bbf7d0'; ctx.font='11px "Segoe UI",sans-serif';
+    ctx.fillText('YOU ACTUALLY MOVED',bx2+12,by+8);
+    ctx.fillStyle='#fff'; ctx.font='bold 22px "Segoe UI",sans-serif';
+    ctx.fillText((ch2True/10).toFixed(1)+' cm',bx2+12,by+26);
+
+    // gap arrow
+    ctx.strokeStyle='#e11d48'; ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.moveTo(bx+boxW+4,by+boxH/2); ctx.lineTo(bx2-4,by+boxH/2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(bx2-4,by+boxH/2); ctx.lineTo(bx2-12,by+boxH/2-5);
+    ctx.moveTo(bx2-4,by+boxH/2); ctx.lineTo(bx2-12,by+boxH/2+5);
+    ctx.moveTo(bx+boxW+4,by+boxH/2); ctx.lineTo(bx+boxW+12,by+boxH/2-5);
+    ctx.moveTo(bx+boxW+4,by+boxH/2); ctx.lineTo(bx+boxW+12,by+boxH/2+5);
+    ctx.stroke();
+    ctx.fillStyle='#fecaca';
+    ctx.font='bold 12px "Segoe UI",sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    const gapCm=Math.max(0,(ch2Encoder-ch2True)/10);
+    ctx.fillText('gap',bx+boxW+gap/2,by+boxH/2-10);
+    ctx.fillText(gapCm.toFixed(1)+' cm',bx+boxW+gap/2,by+boxH/2+10);
+    ctx.textAlign='left';
+  }
+
+  // ---------- CHAPTER 2 (was chapter 3) ----------
+  let ch3RobotX=0, ch3DriveA=0, ch3DeadA=0, ch3DriveEnc=0, ch3DeadEnc=0;
+  let ch3LastRobotX=0, ch3TwitchFlash=0;
+  function chapter3(dt){
+    const t=chapterTime;
+    const groundY=H*0.72;
+
+    const slipStart=W*0.42, slipEnd=W*0.66;
+    ctx.fillStyle='rgba(59,130,246,0.18)';
+    ctx.fillRect(slipStart,groundY-4,slipEnd-slipStart,50);
+    ctx.strokeStyle='rgba(59,130,246,0.6)'; ctx.setLineDash([4,4]); ctx.lineWidth=1;
+    ctx.strokeRect(slipStart,groundY-4,slipEnd-slipStart,50);
+    ctx.setLineDash([]);
+    ctx.fillStyle='#93c5fd'; ctx.font='11px "Segoe UI",sans-serif';
+    ctx.textBaseline='top'; ctx.textAlign='center';
+    ctx.fillText('slippery patch',(slipStart+slipEnd)/2,groundY+30);
+    ctx.textAlign='left';
+
+    ctx.strokeStyle='#94a3b8'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(20,groundY); ctx.lineTo(W-20,groundY); ctx.stroke();
+
+    const phase=(t<4.8)?0:(t<9.6)?1:2;
+
+    const chassisW=200, chassisH=42;
+    const dwR=22;
+    const deadR=14;
+    // chassis lifted so there is real vertical space for a visible spring arm
+    // chassis bottom sits at top of drive wheels
+    // chassis sits above drive wheel tops with room for a visible spring arm to dead wheel
+    const chassisY=groundY-dwR*2-chassisH-18;
+    const chassisBottom=chassisY+chassisH;
+
+    // Ground-truth chassis motion. Jerky through slip patch.
+    let robotCx;
+    const inSlipZone = (rx)=> rx>slipStart-30 && rx<slipEnd+30;
+    let twitchNow=false;
+    if(phase<2){
+      robotCx=W*0.32;
+      ch3RobotX=0;
+      ch3LastRobotX=robotCx;
+    } else {
+      // integrate chassis velocity so we can add jitter
+      let vChassis=140*speed;
+      const preRx = (W*0.22)+ch3RobotX;
+      if(inSlipZone(preRx)){
+        // periodic twitches: brief stalls where chassis barely moves
+        const cycle=(t*6)%1;
+        if(cycle<0.25){ vChassis=15*speed; twitchNow=true; }
+        else { vChassis=90*speed; }
+      }
+      ch3RobotX += vChassis*dt;
+      if(ch3RobotX > W*0.5) ch3RobotX = W*0.5;
+      robotCx = W*0.22 + ch3RobotX;
+    }
+
+    const dwLx=robotCx-chassisW/2+18, dwRx=robotCx+chassisW/2-18;
+    const dwY=groundY-dwR;
+
+    let deadY, deadShow=false, springShow=false;
+    // dead wheel bottom sits on the ground
+    const deadGroundY = groundY - deadR;
+    if(phase===0){ deadY=-100; }
+    else if(phase===1){
+      const tt=(t-4.8)/4.8;
+      const easeT=1-Math.pow(1-Math.min(tt*1.6,1),2);
+      const startY=chassisY-40;
+      deadY=startY+easeT*(deadGroundY-startY);
+      deadShow=tt>0.05;
+      springShow=tt>0.35;
+    } else {
+      deadY=deadGroundY; deadShow=true; springShow=true;
+    }
+    const deadX=robotCx-6;
+
+    // Encoder-linked spin. Drive wheel spins as if truly rolling PLUS slip.
+    // Dead wheel spins strictly with ground motion.
+    const chassisDx = (phase===2) ? (robotCx-ch3LastRobotX) : 0;
+    ch3LastRobotX=robotCx;
+    let driveExtraSpinDeg=0, deadSpinDeg=0;
+    if(phase===2){
+      // baseline: both wheels roll at chassis speed → deg/s = (v / r) * 180/pi
+      const rollDriveDegPerPx = (180/Math.PI)/dwR;
+      const rollDeadDegPerPx  = (180/Math.PI)/deadR;
+      let driveSpinDeg = chassisDx * rollDriveDegPerPx;
+      deadSpinDeg      = chassisDx * rollDeadDegPerPx;
+      if(inSlipZone(robotCx)){
+        // drive wheel spins WAY more than it rolls — like a tire on ice
+        const cycle=(t*6)%1;
+        const surge = (cycle<0.25) ? 900*speed : 320*speed; // deg/s of extra slip spin
+        driveExtraSpinDeg = surge*dt;
+        driveSpinDeg += driveExtraSpinDeg;
+        if(twitchNow) ch3TwitchFlash=0.35;
+      }
+      ch3DriveA += driveSpinDeg*Math.PI/180;
+      ch3DeadA  += deadSpinDeg*Math.PI/180;
+      ch3DriveEnc += Math.abs(driveSpinDeg)*0.5;
+      ch3DeadEnc  += Math.abs(deadSpinDeg)*0.5;
+    }
+    if(ch3TwitchFlash>0) ch3TwitchFlash=Math.max(0,ch3TwitchFlash-dt);
+
+    // chassis
+    ctx.fillStyle='#334155';
+    roundRect(robotCx-chassisW/2,chassisY,chassisW,chassisH,8); ctx.fill();
+    ctx.strokeStyle='#64748b'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#e2e8f0'; ctx.font='11px "Segoe UI",sans-serif';
+    ctx.textBaseline='middle'; ctx.textAlign='center';
+    ctx.fillText('CHASSIS',robotCx,chassisY+chassisH/2);
+    ctx.textAlign='left';
+
+    // struts from chassis down to each drive wheel axle
+    ctx.strokeStyle='#64748b'; ctx.lineWidth=4;
+    ctx.beginPath();
+    ctx.moveTo(dwLx,chassisBottom); ctx.lineTo(dwLx,dwY);
+    ctx.moveTo(dwRx,chassisBottom); ctx.lineTo(dwRx,dwY);
+    ctx.stroke();
+
+    drawWheel(dwLx,dwY,dwR,ch3DriveA);
+    drawWheel(dwRx,dwY,dwR,ch3DriveA);
+    ctx.fillStyle='#f79009'; ctx.font='bold 10px "Segoe UI",sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('M',dwLx,dwY-dwR-8);
+    ctx.fillText('M',dwRx,dwY-dwR-8);
+    ctx.textAlign='left';
+
+    if(springShow){
+      // mount bracket on chassis
+      ctx.fillStyle='#475569';
+      roundRect(deadX-10,chassisBottom-2,20,6,2); ctx.fill();
+      // coiled spring arm from chassis bottom down to wheel axle
+      const sx=deadX, sy1=chassisBottom+2, sy2=deadY-deadR-1;
+      const span=sy2-sy1;
+      ctx.strokeStyle='#12b76a'; ctx.lineWidth=2.5;
+      ctx.beginPath();
+      const coils=7, steps=coils*5;
+      for(let i=0;i<=steps;i++){
+        const tt=i/steps;
+        const yy=sy1+tt*span;
+        const amp=(tt<0.05||tt>0.95)?0:7;
+        const xx=sx+Math.sin(tt*coils*Math.PI*2)*amp;
+        if(i===0) ctx.moveTo(xx,yy); else ctx.lineTo(xx,yy);
+      }
+      ctx.stroke();
+      // downward force arrows next to spring to imply "presses down"
+      ctx.strokeStyle='rgba(18,183,106,0.55)'; ctx.lineWidth=1.5;
+      const ax=sx+14, ayTop=sy1+4, ayBot=sy2-4;
+      ctx.beginPath(); ctx.moveTo(ax,ayTop); ctx.lineTo(ax,ayBot); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(ax,ayBot); ctx.lineTo(ax-3,ayBot-5);
+      ctx.moveTo(ax,ayBot); ctx.lineTo(ax+3,ayBot-5);
+      ctx.stroke();
+    }
+
+    if(deadShow){
+      drawWheel(deadX,deadY,deadR,ch3DeadA,{tire:'#475569'});
+      drawEncoder(deadX+deadR+10,deadY,7,ch3DeadA,'#7c3aed');
+      ctx.strokeStyle='#64748b'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(deadX,deadY); ctx.lineTo(deadX+deadR+10,deadY); ctx.stroke();
+    }
+
+    if(phase===0){
+      label('Regular drive wheels — powered by motors',20,60,dwLx,dwY-dwR-6,'#fed7aa');
+      bigCallout('Watch what we add next: a dead wheel.',
+        W-320,60,'#12b76a',300);
+    } else if(phase===1){
+      const tt=(t-4.8)/4.8;
+      if(tt>0.15) label('Small unpowered wheel',W-250,60,deadX+8,deadY,'#bbf7d0');
+      if(tt>0.4) label('Spring — presses it down firmly',W-280,100,deadX+14,(chassisY+deadY)/2,'#86efac');
+      if(tt>0.6) label('Its own encoder',W-210,140,deadX+deadR+10,deadY-6,'#c4b5fd');
+      if(tt>0.8) label('NO motor connected',30,60,deadX-20,chassisY+20,'#fecaca');
+    } else {
+      const boxW=270, boxH=58, by=18;
+      ctx.fillStyle='rgba(15,23,42,0.92)';
+      roundRect(20,by,boxW,boxH,8); ctx.fill();
+      ctx.strokeStyle='#e11d48'; ctx.lineWidth=2; ctx.stroke();
+      ctx.fillStyle='#fecaca'; ctx.font='11px "Segoe UI",sans-serif';
+      ctx.textBaseline='top'; ctx.textAlign='left';
+      ctx.fillText('DRIVE WHEEL ENCODER — SLIPS',30,by+6);
+      ctx.fillStyle='#fff'; ctx.font='bold 18px "Segoe UI",sans-serif';
+      ctx.fillText((ch3DriveEnc/8).toFixed(1)+' cm  (too much)',30,by+24);
+
+      ctx.fillStyle='rgba(15,23,42,0.92)';
+      roundRect(W-boxW-20,by,boxW,boxH,8); ctx.fill();
+      ctx.strokeStyle='#12b76a'; ctx.lineWidth=2; ctx.stroke();
+      ctx.fillStyle='#bbf7d0'; ctx.font='11px "Segoe UI",sans-serif';
+      ctx.fillText('DEAD WHEEL ENCODER — TRUTH',W-boxW-10,by+6);
+      ctx.fillStyle='#fff'; ctx.font='bold 18px "Segoe UI",sans-serif';
+      ctx.fillText((ch3DeadEnc/8).toFixed(1)+' cm  (true)',W-boxW-10,by+24);
+
+      // motion lines + puff on drive wheels when slipping
+      const inSlipNow = inSlipZone(robotCx);
+      if(inSlipNow){
+        ctx.strokeStyle='rgba(225,29,72,0.7)'; ctx.lineWidth=1.5;
+        [dwLx,dwRx].forEach(wx=>{
+          for(let i=0;i<3;i++){
+            const yy=dwY-dwR-4-i*4;
+            ctx.beginPath();
+            ctx.moveTo(wx-dwR*0.7,yy); ctx.lineTo(wx+dwR*0.7,yy); ctx.stroke();
+          }
+        });
+      }
+      // orange puffs on twitch
+      if(ch3TwitchFlash>0){
+        const a=ch3TwitchFlash/0.35;
+        [dwLx,dwRx].forEach(wx=>{
+          for(let i=0;i<5;i++){
+            const px=wx-14+i*7+Math.sin(t*20+i)*2;
+            const py=groundY-2-Math.abs(Math.sin(i*1.3+t*10))*6;
+            const rr=3+i*0.6;
+            ctx.fillStyle='rgba(247,144,9,'+(0.55*a).toFixed(2)+')';
+            ctx.beginPath(); ctx.arc(px,py,rr,0,Math.PI*2); ctx.fill();
+          }
+        });
+        label('slip!',robotCx-24,dwY-dwR-70,robotCx,dwY-dwR-8,'#fed7aa');
+      }
+
+      // "encoder LIES by X ticks" bar between the two counters
+      const gapTicks = Math.max(0, ch3DriveEnc - ch3DeadEnc);
+      const barY = by+boxH+8;
+      const barW = W - boxW*2 - 40 - 20;
+      const barX = 20 + boxW + 10;
+      const fillFrac = Math.min(1, gapTicks/220);
+      ctx.fillStyle='rgba(15,23,42,0.85)';
+      roundRect(barX,barY,barW,22,6); ctx.fill();
+      ctx.strokeStyle='rgba(225,29,72,0.6)'; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle='rgba(225,29,72,0.85)';
+      roundRect(barX+2,barY+2,(barW-4)*fillFrac,18,4); ctx.fill();
+      ctx.fillStyle='#fecaca'; ctx.font='bold 11px "Segoe UI",sans-serif';
+      ctx.textBaseline='middle'; ctx.textAlign='center';
+      ctx.fillText('encoder LIES by '+Math.floor(gapTicks)+' ticks',barX+barW/2,barY+11);
+      ctx.textAlign='left';
+
+      bigCallout('A dead wheel is a wheel along for the ride. Nothing pushes it, so nothing makes it slip.',
+        W/2-220,H-110,'#12b76a',440);
+      ctx.fillStyle='#cbd5e1'; ctx.font='italic 11px "Segoe UI",sans-serif';
+      ctx.textBaseline='top'; ctx.textAlign='center';
+      ctx.fillText('Real robots often use 2 or 3 dead wheels — two for X/Y, one for heading.',W/2,H-32);
+      ctx.textAlign='left';
+    }
+  }
+
+  let lastDt=0;
+  function drawChapter(){
+    if(chapter===0) chapter2(lastDt);
+    else chapter3(lastDt);
+  }
+
+  function loop(now){
+    if(paused) return;
+    const dt=Math.min(0.05,(now-last)/1000);
+    last=now;
+    lastDt=dt;
+
+    if(fadeDir===-1){
+      chapterFade-=dt*3;
+      if(chapterFade<=0){
+        chapterFade=0;
+        if(pendingChapter>=0){
+          chapter=pendingChapter; pendingChapter=-1;
+          chapterTime=0;
+          resetChapterState(chapter);
+        }
+        fadeDir=1;
+      }
+    } else if(fadeDir===1){
+      chapterFade+=dt*3;
+      if(chapterFade>=1){ chapterFade=1; fadeDir=0; }
+    }
+
+    chapterTime+=dt*speed;
+    if(chapterTime>CHAPTER_LEN && fadeDir===0){
+      const next=(chapter+1)%2;
+      fadeDir=-1;
+      pendingChapter=next;
+      chapterBtns.forEach((b,idx)=>b.classList.toggle('active',idx===next));
+      ex.innerHTML=explainerText[next];
+    }
+
+    grid();
+    ctx.save();
+    ctx.globalAlpha=chapterFade;
+    drawChapter();
+    ctx.restore();
+
+    requestAnimationFrame(loop);
+  }
+
+  resize();
+  ex.innerHTML=explainerText[0];
+  requestAnimationFrame((t)=>{ last=t; requestAnimationFrame(loop); });
+  new ResizeObserver(resize).observe(canvas);
+})();
+</script>
+</body>
+</html>

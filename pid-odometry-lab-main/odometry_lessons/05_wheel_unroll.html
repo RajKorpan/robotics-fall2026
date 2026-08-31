@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>From Wheel Turn to Distance</title>
+<style>
+  body { margin: 0; padding: 0; background: #f4f6fb; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; color: #182230; }
+  .wrap { width: 100%; max-width: 960px; margin: 0 auto; }
+  .card { background: #fff; border: 1px solid #d0d5dd; border-radius: 12px; padding: 12px 18px; margin: 8px; }
+  h1 { font-size: 18px; font-weight: 650; margin: 0 0 4px 0; color: #182230; }
+  .sub { font-size: 13px; color: #475467; margin: 0; }
+  canvas { display: block; width: 100%; height: 440px; border-radius: 12px; background: #0f172a; }
+  .controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; color: #182230; }
+  .controls button { background: #2563eb; color: #fff; border: 0; border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .controls button.ghost { background: #fff; color: #182230; border: 1px solid #d0d5dd; }
+  .controls button:hover { filter: brightness(1.08); }
+  .controls input[type=range] { accent-color: #2563eb; }
+  .explain { font-size: 13px; color: #475467; min-height: 42px; line-height: 1.4; }
+  .explain b { color: #182230; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>From Wheel Turn to Distance</h1>
+    <p class="sub">If a wheel rolls without slipping, angle × radius is exactly the distance.</p>
+  </div>
+  <div class="card" style="padding:8px;">
+    <canvas id="c" width="1840" height="880"></canvas>
+  </div>
+  <div class="card controls">
+    <button id="play">Pause</button>
+    <button id="reset" class="ghost">Reset</button>
+    <button id="a1" class="ghost">Act 1</button>
+    <button id="a2" class="ghost">Act 2</button>
+    <button id="a3" class="ghost">Act 3</button>
+    <label style="display:flex;align-items:center;gap:8px;">
+      Wheel diameter: <span id="dval" style="font-variant-numeric: tabular-nums; min-width:56px;">8.00 cm</span>
+      <input id="dia" type="range" min="3" max="15" step="0.1" value="8" style="width:180px;">
+    </label>
+  </div>
+  <div class="card explain" id="explain">The wheel doesn't slide, every bit of tread touches the ground exactly once per rotation.</div>
+</div>
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  // logical size
+  let W = 920, H = 440;
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    W = rect.width; H = rect.height;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // colors
+  const COL = {
+    bg: '#0f172a',
+    ink: '#182230',
+    muted: '#475467',
+    accent: '#2563eb',
+    orange: '#f79009',
+    green: '#12b76a',
+    purple: '#7c3aed',
+    pink: '#ec4899',
+    white: '#ffffff',
+  };
+
+  // state
+  let playing = true;
+  let t = 0;              // seconds within cycle
+  const CYCLE = 18;       // total seconds
+  let lastTs = performance.now();
+  let diameterCm = 8.0;
+  let forcedAct = null;   // if user clicks act buttons, jump
+
+  // cm to px
+  const CM = 22;          // 22 px per cm on canvas
+  const groundY = 240;
+
+  const playBtn = document.getElementById('play');
+  const resetBtn = document.getElementById('reset');
+  const diaEl = document.getElementById('dia');
+  const dval = document.getElementById('dval');
+  const explain = document.getElementById('explain');
+  const explainLines = [
+    "The wheel doesn't slide — every bit of tread touches the ground exactly once per rotation.",
+    "So a full rotation of the wheel moves the robot by one circumference.",
+    "Any partial rotation moves the robot by (angle / full turn) × circumference."
+  ];
+
+  playBtn.onclick = () => { playing = !playing; playBtn.textContent = playing ? 'Pause' : 'Play'; };
+  resetBtn.onclick = () => { t = 0; forcedAct = null; };
+  document.getElementById('a1').onclick = () => { t = 0.01; forcedAct = null; };
+  document.getElementById('a2').onclick = () => { t = 5.01; forcedAct = null; };
+  document.getElementById('a3').onclick = () => { t = 11.01; forcedAct = null; };
+  diaEl.oninput = () => {
+    diameterCm = parseFloat(diaEl.value);
+    dval.textContent = diameterCm.toFixed(2) + ' cm';
+  };
+
+  // helpers
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y, x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r);
+    ctx.arcTo(x, y, x+w, y, r);
+    ctx.closePath();
+  }
+  function labelBox(x, y, text, opts={}) {
+    const size = opts.size || 15;
+    const weight = opts.bold ? '700 ' : '600 ';
+    ctx.font = weight + size + 'px "Segoe UI", system-ui, sans-serif';
+    const pad = opts.pad || 8;
+    const m = ctx.measureText(text);
+    const w = m.width + pad*2;
+    const h = size + pad*2 - 2;
+    ctx.fillStyle = opts.bg || 'rgba(15,23,42,0.9)';
+    roundRect(x - w/2, y - h/2, w, h, 6);
+    ctx.fill();
+    if (opts.border) {
+      ctx.strokeStyle = opts.border;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    if (opts.glow) {
+      ctx.shadowColor = opts.glow;
+      ctx.shadowBlur = 8;
+    }
+    ctx.fillStyle = opts.color || '#ffffff';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y+0.5);
+    ctx.shadowBlur = 0;
+  }
+
+  function drawGrid() {
+    ctx.fillStyle = COL.bg;
+    ctx.fillRect(0, 0, W, H);
+    // subtle grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += 20) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y < H; y += 20) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+  }
+
+  function drawGround(startX, endX) {
+    // ground line
+    ctx.strokeStyle = COL.muted;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(W, groundY); ctx.stroke();
+
+    // 5cm ticks
+    ctx.textAlign = 'center';
+    for (let cm = 0; cm * CM + startX < W; cm += 5) {
+      const x = startX + cm * CM;
+      if (x < 0 || x > W) continue;
+      ctx.strokeStyle = '#c9d3e5';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x, groundY);
+      ctx.lineTo(x, groundY + 8);
+      ctx.stroke();
+      // dark rounded background for legibility
+      const label = cm + ' cm';
+      ctx.font = '700 14px "Segoe UI", system-ui, sans-serif';
+      const tw = ctx.measureText(label).width;
+      ctx.fillStyle = 'rgba(15,23,42,0.9)';
+      roundRect(x - tw/2 - 6, groundY + 12, tw + 12, 20, 6);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, x, groundY + 22);
+    }
+  }
+
+  function drawWheel(cx, cy, r, angle, opts={}) {
+    // shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + r + 2, r * 0.8, 3, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // outer tire
+    ctx.strokeStyle = opts.dashed ? 'rgba(255,255,255,0.35)' : '#e6edf7';
+    if (opts.dashed) ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (opts.dashed) return;
+
+    // inner hub disk
+    const grad = ctx.createRadialGradient(cx - r*0.3, cy - r*0.3, r*0.1, cx, cy, r);
+    grad.addColorStop(0, '#2a3854');
+    grad.addColorStop(1, '#141d33');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r - 2, 0, Math.PI*2);
+    ctx.fill();
+
+    // spokes
+    ctx.strokeStyle = 'rgba(230,237,247,0.35)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 6; i++) {
+      const a = angle + i * Math.PI / 3;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(a) * (r - 4), cy + Math.sin(a) * (r - 4));
+      ctx.stroke();
+    }
+
+    // hub
+    ctx.fillStyle = '#e6edf7';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI*2);
+    ctx.fill();
+
+    // bold 12-o'clock tick (rotates with wheel)
+    // "12 o'clock" default is angle = -PI/2; add wheel rotation
+    const tickA = -Math.PI/2 + angle;
+    ctx.strokeStyle = COL.orange;
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(tickA) * (r * 0.15), cy + Math.sin(tickA) * (r * 0.15));
+    ctx.lineTo(cx + Math.cos(tickA) * (r - 3), cy + Math.sin(tickA) * (r - 3));
+    ctx.stroke();
+
+    // little dot at tip of tick
+    ctx.fillStyle = COL.orange;
+    ctx.beginPath();
+    ctx.arc(cx + Math.cos(tickA) * (r - 3), cy + Math.sin(tickA) * (r - 3), 3.5, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  function drawMathPanel(diameter, radius, angleRad) {
+    const angleDeg = angleRad * 180 / Math.PI;
+    const circ = Math.PI * diameter;
+    const dist = angleRad * radius;
+    const frac = angleRad / (2 * Math.PI);
+
+    const y0 = 285;
+    const rows = [
+      ['Diameter',     diameter.toFixed(2) + ' cm', COL.accent],
+      ['Radius',       radius.toFixed(2) + ' cm',   COL.accent],
+      ['Circumference', 'p x ' + diameter.toFixed(2) + ' = ' + circ.toFixed(2) + ' cm', COL.green],
+      ['Angle rotated', angleDeg.toFixed(1) + 'deg  =  ' + angleRad.toFixed(3) + ' rad', COL.orange],
+      ['Fraction of full turn', frac.toFixed(3) + '  (' + (frac*100).toFixed(1) + '%)', COL.purple],
+      ['Distance = angle_rad x radius', dist.toFixed(2) + ' cm', COL.pink],
+    ];
+
+    // panel bg
+    ctx.fillStyle = 'rgba(15,23,42,0.92)';
+    roundRect(20, y0 - 14, 470, rows.length * 26 + 18, 8);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 1.5; ctx.stroke();
+
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.font = '700 14px "Segoe UI", system-ui, sans-serif';
+    for (let i = 0; i < rows.length; i++) {
+      const [k, v, c] = rows[i];
+      const y = y0 + 8 + i * 23;
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 14px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText(k, 32, y);
+      ctx.fillStyle = c;
+      ctx.font = '700 15px ui-monospace, "Consolas", "Menlo", monospace';
+      ctx.fillText(v, 230, y);
+    }
+  }
+
+  // stored trail dots (for act 1 & 3): {x, tickColor}
+  let trailDots = [];
+  let cycloidPts = [];
+  let lastCycle = -1;
+
+  function computeAct(t) {
+    if (t < 5) return 1;
+    if (t < 11) return 2;
+    return 3;
+  }
+
+  function easeInOut(x) { return x < 0.5 ? 2*x*x : 1 - Math.pow(-2*x+2, 2)/2; }
+
+  function draw() {
+    drawGrid();
+
+    // detect cycle restart
+    const cyc = Math.floor(t / CYCLE);
+    if (cyc !== lastCycle) {
+      trailDots = [];
+      cycloidPts = [];
+      lastCycle = cyc;
+    }
+
+    const tt = t % CYCLE;
+    const diameter = diameterCm;              // cm
+    const radius = diameter / 2;               // cm
+    const radiusPx = radius * CM;
+    const circ = Math.PI * diameter;           // cm
+    const circPx = circ * CM;
+
+    const startX = 90;
+    // ground drawing
+    drawGround(startX, W);
+
+    let act = computeAct(tt);
+
+    // Determine wheel position and angle based on act
+    let angle = 0;         // rotation of wheel in radians (positive = clockwise = rolling right)
+    let cx = startX;
+    let showBefore = false, showBracket = false, tapeLen = 0, tapeAlpha = 0, showBigEq = 0;
+    let highlightArcFrac = 0;
+
+    if (act === 1) {
+      // 0..5s: roll one full rotation
+      const p = tt / 5;
+      const e = easeInOut(p);
+      angle = e * 2 * Math.PI;
+      cx = startX + e * circPx;
+      showBefore = true;
+      showBracket = p > 0.15;
+    } else if (act === 2) {
+      // 5..11s: slow re-roll from 0..1 rotation, tape unrolls
+      const p = (tt - 5) / 6;
+      const e = easeInOut(p);
+      angle = e * 2 * Math.PI;
+      cx = startX + e * circPx;
+      tapeLen = e * circPx;
+      tapeAlpha = Math.min(1, p * 2);
+      showBigEq = p > 0.7 ? Math.min(1, (p - 0.7) / 0.2) : 0;
+    } else {
+      // 11..18s: partial rotation demo
+      const p = (tt - 11) / 7;
+      // sweep angle up to (145 deg default) - actually let's animate different partial angles
+      // We'll animate 0..145 deg then hold
+      let targetDeg = 145;
+      let ap;
+      if (p < 0.5) ap = easeInOut(p / 0.5);
+      else ap = 1;
+      angle = (targetDeg * Math.PI / 180) * ap;
+      // rolling: distance = angle * radius (px = angle * radiusPx)
+      cx = startX + angle * radiusPx;
+      highlightArcFrac = angle / (2 * Math.PI);
+      showBefore = true;
+    }
+
+    const cy = groundY - radiusPx;
+
+    // ---- Act 1: cycloid trace + trail dots + before/after ----
+    if (act === 1) {
+      // record cycloid point of the point that started at bottom
+      // point at angle (theta from bottom) relative to wheel: at rotation angle A, that point's position:
+      // bottom-point at t=0 -> at rotation A, the point is at wheel-center + R*(sin(A), cos(A)) ??? let's just use param.
+      const A = angle;
+      const px = cx + radiusPx * Math.sin(-A);
+      const py = cy + radiusPx * Math.cos(-A);
+      cycloidPts.push([px, py]);
+
+      // record contact-point dots: every 15deg
+      const stepDeg = 15;
+      const nowDeg = angle * 180 / Math.PI;
+      const lastRecorded = trailDots.length ? trailDots[trailDots.length-1].deg : -1;
+      for (let d = Math.floor(lastRecorded / stepDeg) * stepDeg + stepDeg; d <= nowDeg; d += stepDeg) {
+        const a = d * Math.PI / 180;
+        const x = startX + a * radiusPx;
+        trailDots.push({ x: x, deg: d });
+      }
+
+      // draw cycloid arc
+      if (cycloidPts.length > 1) {
+        ctx.strokeStyle = COL.pink;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cycloidPts[0][0], cycloidPts[0][1]);
+        for (let i = 1; i < cycloidPts.length; i++) ctx.lineTo(cycloidPts[i][0], cycloidPts[i][1]);
+        ctx.stroke();
+      }
+
+      // ground dots
+      for (const d of trailDots) {
+        ctx.fillStyle = COL.green;
+        ctx.beginPath();
+        ctx.arc(d.x, groundY, 2.5, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      // "before" dashed outline at startX
+      drawWheel(startX, cy, radiusPx, 0, {dashed:true});
+      // "after" dashed at final if near end
+      const endX = startX + circPx;
+      if (tt / 5 > 0.95) {
+        drawWheel(endX, cy, radiusPx, 0, {dashed:true});
+      }
+
+      // bracket
+      if (showBracket) {
+        const endBracketX = Math.max(cx, startX + 30);
+        ctx.strokeStyle = COL.green;
+        ctx.lineWidth = 3.5;
+        ctx.lineCap = 'round';
+        const by = groundY + 44;
+        ctx.beginPath();
+        ctx.moveTo(startX, by);
+        ctx.lineTo(startX, by + 12);
+        ctx.moveTo(startX, by);
+        ctx.lineTo(endBracketX, by);
+        ctx.lineTo(endBracketX, by + 12);
+        ctx.stroke();
+        labelBox((startX + endBracketX)/2, by + 30,
+          'one full rotation = 1 circumference = pD',
+          {color: '#ffffff', bg: 'rgba(15,23,42,0.92)', border: COL.green, bold:true, size:16});
+      }
+    }
+
+    // ---- Act 2: unrolled tape ----
+    if (act === 2) {
+      // draw ghost outline of full circumference target
+      const endX = startX + circPx;
+      ctx.strokeStyle = 'rgba(124,58,237,0.4)';
+      ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(startX, groundY - 4); ctx.lineTo(endX, groundY - 4); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // tape: from startX to startX + tapeLen, height 8
+      const tapeH = 10;
+      const tapeY = groundY - tapeH - 2;
+      const tapeGrad = ctx.createLinearGradient(startX, 0, startX + circPx, 0);
+      tapeGrad.addColorStop(0, COL.orange);
+      tapeGrad.addColorStop(0.5, COL.pink);
+      tapeGrad.addColorStop(1, COL.purple);
+      ctx.globalAlpha = tapeAlpha;
+      ctx.fillStyle = tapeGrad;
+      roundRect(startX, tapeY, tapeLen, tapeH, 3);
+      ctx.fill();
+
+      // tick marks on tape at 15deg intervals
+      const stepDeg = 15;
+      const stepPx = (stepDeg/360) * circPx;
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.lineWidth = 1;
+      for (let x = startX; x <= startX + tapeLen; x += stepPx) {
+        ctx.beginPath(); ctx.moveTo(x, tapeY); ctx.lineTo(x, tapeY + tapeH); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+
+      // bracket + label
+      if (tapeLen > 20) {
+        const by = groundY + 44;
+        ctx.strokeStyle = COL.purple;
+        ctx.lineWidth = 3.5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(startX, by);
+        ctx.lineTo(startX, by + 12);
+        ctx.moveTo(startX, by);
+        ctx.lineTo(startX + tapeLen, by);
+        ctx.lineTo(startX + tapeLen, by + 12);
+        ctx.stroke();
+        labelBox(startX + tapeLen/2, by + 30,
+          'p x diameter = circumference',
+          {color: '#ffffff', bg: 'rgba(15,23,42,0.92)', border: COL.purple, bold:true, size:16});
+      }
+
+      // big equation when nearing end
+      if (showBigEq > 0) {
+        ctx.globalAlpha = showBigEq;
+        const bx = W/2 + 120, by = 110;
+        // dark rounded background
+        ctx.fillStyle = 'rgba(15,23,42,0.92)';
+        roundRect(bx - 140, by - 34, 280, 78, 10);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(247,144,9,0.7)';
+        ctx.lineWidth = 2; ctx.stroke();
+        // glow headline
+        ctx.shadowColor = COL.orange;
+        ctx.shadowBlur = 22 * showBigEq;
+        ctx.font = '800 28px "Segoe UI", system-ui, sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText('C = p D', bx, by);
+        ctx.shadowBlur = 0;
+        ctx.font = '700 20px "Segoe UI", system-ui, sans-serif';
+        ctx.fillStyle = '#ffd9a8';
+        ctx.fillText('C = 2 p r', bx, by + 32);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // ---- Act 3: partial rotation, highlight arc ----
+    if (act === 3) {
+      // draw dashed "before"
+      drawWheel(startX, cy, radiusPx, 0, {dashed:true});
+
+      // highlight arc on wheel bottom: from bottom to bottom+angle (going backward as wheel rolled)
+      // The arc that touched the ground is the tread from theta_start to theta_start+angle
+      // Draw it as thick orange arc on wheel
+      ctx.strokeStyle = COL.orange;
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      const startA = Math.PI/2 - angle; // arc from this to PI/2 (bottom)
+      const endA = Math.PI/2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radiusPx, startA, endA);
+      ctx.stroke();
+
+      // highlight ground segment traveled
+      ctx.strokeStyle = COL.pink;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(startX, groundY);
+      ctx.lineTo(cx, groundY);
+      ctx.stroke();
+
+      // labels
+      const distCm = angle * radius; // cm
+      labelBox((startX + cx)/2, groundY + 62,
+        'distance = ' + distCm.toFixed(2) + ' cm',
+        {color:'#ffffff', bg:'rgba(15,23,42,0.92)', border: COL.pink, bold:true, size:16});
+
+      // equation big - with dark rounded background
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      const eqX = W - 290, eqY = 120;
+      ctx.fillStyle = 'rgba(15,23,42,0.92)';
+      roundRect(eqX - 230, eqY - 32, 460, 76, 10);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(236,72,153,0.6)';
+      ctx.lineWidth = 2; ctx.stroke();
+      ctx.shadowColor = COL.pink;
+      ctx.shadowBlur = 14;
+      ctx.font = '800 24px "Segoe UI", system-ui, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('distance = angle (rad) x radius', eqX, eqY);
+      ctx.shadowBlur = 0;
+      ctx.font = '700 17px "Segoe UI", system-ui, sans-serif';
+      ctx.fillStyle = '#ffd9a8';
+      ctx.fillText('= (angle / 360deg) x p D', eqX, eqY + 28);
+    }
+
+    // draw wheel (top layer)
+    drawWheel(cx, cy, radiusPx, angle);
+
+    // math panel bottom-left
+    drawMathPanel(diameter, radius, angle);
+
+    // Act label top-right - dark rounded background for legibility
+    const actNames = ['', 'Rolling wheel makes a trail', 'Unroll the circumference', 'Partial rotation'];
+    const actTag = 'ACT ' + act + ' / 3';
+    const actTitle = actNames[act];
+    ctx.font = '800 16px "Segoe UI", system-ui, sans-serif';
+    const tagW = ctx.measureText(actTag).width;
+    ctx.font = '800 19px "Segoe UI", system-ui, sans-serif';
+    const titleW = ctx.measureText(actTitle).width;
+    const boxW = Math.max(tagW, titleW) + 24;
+    const boxX = W - 16 - boxW;
+    ctx.fillStyle = 'rgba(15,23,42,0.9)';
+    roundRect(boxX, 12, boxW, 60, 8);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1.5; ctx.stroke();
+
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = '800 16px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = COL.orange;
+    ctx.fillText(actTag, W - 28, 32);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 19px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(actTitle, W - 28, 58);
+
+    // update explainer
+    explain.innerHTML = '<b>Act ' + act + ':</b> ' + explainLines[act-1];
+  }
+
+  function frame(now) {
+    const dt = Math.min(0.05, (now - lastTs) / 1000);
+    lastTs = now;
+    if (playing) t += dt;
+    draw();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

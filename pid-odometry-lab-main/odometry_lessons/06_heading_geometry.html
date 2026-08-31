@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Heading from Two Wheels</title>
+<style>
+  :root {
+    --ink:#182230; --muted:#475467; --border:#d0d5dd;
+    --blue:#2563eb; --orange:#f79009; --green:#12b76a; --pink:#ec4899;
+    --font:"Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; padding:0; background:#f2f4f7; font-family:var(--font); color:var(--ink); }
+  .wrap { max-width:940px; margin:0 auto; padding:6px; }
+  .card { background:#fff; border:1px solid var(--border); border-radius:12px; padding:10px 14px; margin-bottom:8px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; }
+  .row > .card { flex:1; min-width:280px; margin-bottom:0; }
+
+  h1 { margin:0 0 2px; font-size:17px; }
+  .sub { margin:0; font-size:12.5px; color:var(--muted); }
+
+  canvas { display:block; width:100%; height:300px; background:#0f172a; border-radius:10px; }
+
+  .presets { display:flex; gap:6px; margin-bottom:8px; }
+  .pbtn { flex:1; padding:7px 4px; border:1px solid var(--border); border-radius:8px; background:#fff;
+    font:600 12px var(--font); color:var(--ink); cursor:pointer; }
+  .pbtn:hover { background:#f2f4f7; }
+  .pbtn.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+
+  .slider-label { display:flex; justify-content:space-between; font-size:12px; font-weight:700; margin-bottom:2px; }
+  .slider-label.blue { color:var(--blue); }
+  .slider-label.orange { color:var(--orange); }
+  input[type=range] { width:100%; height:6px; -webkit-appearance:none; appearance:none; border-radius:3px; outline:none; margin:2px 0 12px; }
+  input[type=range].blue { background:linear-gradient(90deg,#dbeafe,var(--blue)); }
+  input[type=range].orange { background:linear-gradient(90deg,#fef3c7,var(--orange)); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%;
+    background:#fff; border:2px solid var(--ink); cursor:pointer; }
+  input[type=range]::-moz-range-thumb { width:16px; height:16px; border-radius:50%; background:#fff; border:2px solid var(--ink); cursor:pointer; }
+
+  .derive { font-size:13px; line-height:1.5; }
+  .derive .eq { font:700 15px ui-monospace, Consolas, monospace; color:#027a48; background:#ecfdf3;
+    border:1px solid #a7f3d0; border-radius:8px; padding:8px 10px; margin:6px 0; }
+  .derive .plug { font:600 13.5px ui-monospace, Consolas, monospace; color:var(--ink); }
+  .derive .num-blue { color:var(--blue); font-weight:700; }
+  .derive .num-orange { color:var(--orange); font-weight:700; }
+  .verdict { font-weight:800; font-size:14px; margin-top:4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>Heading from two wheels</h1>
+    <p class="sub">Set how far each wheel rolls. If they differ, the robot turns &mdash; watch &Delta;&theta; update live.</p>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <canvas id="c" width="560" height="300"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="presets">
+        <button class="pbtn" data-l="5" data-r="5">Go straight</button>
+        <button class="pbtn" data-l="3" data-r="7">Turn left</button>
+        <button class="pbtn" data-l="7" data-r="3">Turn right</button>
+        <button class="pbtn" data-l="0" data-r="6">Spin</button>
+      </div>
+
+      <div class="slider-label blue"><span>Left wheel rolls d&#8343;</span><span id="dLval">5.0 cm</span></div>
+      <input type="range" class="blue" id="dL" min="0" max="10" step="0.1" value="5">
+
+      <div class="slider-label orange"><span>Right wheel rolls d&#7523;</span><span id="dRval">5.0 cm</span></div>
+      <input type="range" class="orange" id="dR" min="0" max="10" step="0.1" value="5">
+
+      <div class="derive">
+        <div>Track width <b>L = 12 cm</b> (fixed).</div>
+        <div class="eq">&Delta;&theta; = (d&#7523; &minus; d&#8343;) / L</div>
+        <div class="plug" id="plug"></div>
+        <div class="verdict" id="verdict"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const cvs = document.getElementById('c');
+  const ctx = cvs.getContext('2d');
+  const L = 12;                 // track width (cm)
+  const state = { dL: 5, dR: 5 };
+
+  // --- DPR fit so the canvas is crisp and sized to its CSS box ---
+  function fit() {
+    const rect = cvs.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    cvs.width = Math.round(rect.width * dpr);
+    cvs.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+    sendHeight();
+  }
+
+  // --- differential-drive pose from wheel distances (start facing up) ---
+  function pose(dL, dR) {
+    const startTh = Math.PI / 2;               // facing up
+    const ds = (dL + dR) / 2;
+    const dth = (dR - dL) / L;
+    if (Math.abs(dth) < 1e-6) {
+      return { x: ds * Math.cos(startTh), y: ds * Math.sin(startTh), th: startTh, dth: 0, ds };
+    }
+    const R = ds / dth;                          // signed turn radius
+    const cx = -R * Math.sin(startTh);           // pivot (ICC)
+    const cy =  R * Math.cos(startTh);
+    const nth = startTh + dth;
+    return { x: cx + R * Math.sin(nth), y: cy - R * Math.cos(nth), th: nth, dth, ds, R, cx, cy };
+  }
+
+  // world (cm) -> screen (px); origin near bottom-center, y up
+  let view = { ox: 0, oy: 0, s: 12 };
+  function computeView(w, h) {
+    view.ox = w * 0.5;
+    view.oy = h * 0.80;
+    view.s = 11;
+  }
+  const W2S = (wx, wy) => ({ x: view.ox + wx * view.s, y: view.oy - wy * view.s });
+
+  function wheelCenters(p) {
+    const half = L / 2;
+    const cos = Math.cos(p.th), sin = Math.sin(p.th);
+    return {
+      l: { x: p.x + (-sin) * half, y: p.y + cos * half },
+      r: { x: p.x - (-sin) * half, y: p.y - cos * half },
+    };
+  }
+
+  function arcPts(dL, dR, side) {
+    // sample the wheel path from f=0..1
+    const pts = [];
+    for (let i = 0; i <= 30; i++) {
+      const f = i / 30;
+      const p = pose(dL * f, dR * f);
+      const wc = wheelCenters(p);
+      pts.push(side === 'l' ? wc.l : wc.r);
+    }
+    return pts;
+  }
+
+  function line(pts, color, width) {
+    if (pts.length < 2) return;
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    const a = W2S(pts[0].x, pts[0].y); ctx.moveTo(a.x, a.y);
+    for (let i = 1; i < pts.length; i++) { const q = W2S(pts[i].x, pts[i].y); ctx.lineTo(q.x, q.y); }
+    ctx.stroke();
+  }
+
+  function chassis(p, opts) {
+    opts = opts || {};
+    const wc = wheelCenters(p);
+    const l = W2S(wc.l.x, wc.l.y), r = W2S(wc.r.x, wc.r.y), c = W2S(p.x, p.y);
+    // axle
+    ctx.strokeStyle = opts.dashed ? 'rgba(236,72,153,0.6)' : '#ec4899';
+    ctx.lineWidth = 4; ctx.globalAlpha = opts.alpha || 1;
+    ctx.setLineDash(opts.dashed ? [6,4] : []);
+    ctx.beginPath(); ctx.moveTo(l.x, l.y); ctx.lineTo(r.x, r.y); ctx.stroke();
+    ctx.setLineDash([]);
+    // heading arrow
+    const fx = c.x + Math.cos(p.th) * 20, fy = c.y - Math.sin(p.th) * 20;
+    ctx.strokeStyle = opts.dashed ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.75)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(fx, fy); ctx.stroke();
+    // wheels
+    wheel(l.x, l.y, p.th, '#2563eb', opts.alpha);
+    wheel(r.x, r.y, p.th, '#f79009', opts.alpha);
+    ctx.globalAlpha = 1;
+  }
+
+  function wheel(x, y, th, color, alpha) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(-th);
+    ctx.globalAlpha = alpha || 1; ctx.fillStyle = color;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+    roundRect(-11, -5, 22, 10, 3); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+  }
+
+  function pill(text, x, y, color, stroke) {
+    ctx.font = 'bold 12px ' + '"Segoe UI", system-ui, sans-serif';
+    const w = ctx.measureText(text).width + 14, h = 20;
+    ctx.fillStyle = 'rgba(15,23,42,0.92)';
+    roundRect(x - w/2, y - h/2, w, h, 6); ctx.fill();
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke(); }
+    ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y);
+  }
+
+  function draw() {
+    const w = cvs.getBoundingClientRect().width, h = cvs.getBoundingClientRect().height;
+    computeView(w, h);
+    ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, w, h);
+    // grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 22) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+    for (let y = 0; y < h; y += 22) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+
+    const p = pose(state.dL, state.dR);
+
+    // pivot + turn angle arc (only when actually turning)
+    if (Math.abs(p.dth) > 1e-6 && Math.abs(p.R) < 500) {
+      const piv = W2S(p.cx, p.cy);
+      // faint radius lines to both poses
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1.2; ctx.setLineDash([5,5]);
+      const s0 = W2S(0, 0), s1 = W2S(p.x, p.y);
+      ctx.beginPath(); ctx.moveTo(piv.x, piv.y); ctx.lineTo(s0.x, s0.y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(piv.x, piv.y); ctx.lineTo(s1.x, s1.y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(piv.x, piv.y, 3.5, 0, Math.PI*2); ctx.fill();
+      pill('pivot', piv.x, piv.y + 16, '#e2e8f0', 'rgba(255,255,255,0.3)');
+    }
+
+    // wheel arcs (the paths each wheel traced)
+    line(arcPts(state.dL, state.dR, 'l'), 'rgba(37,99,235,0.85)', 3);
+    line(arcPts(state.dL, state.dR, 'r'), 'rgba(247,144,9,0.9)', 3);
+
+    // start pose (dashed) and current pose (solid)
+    chassis(pose(0, 0), { dashed: true, alpha: 0.6 });
+    chassis(p, {});
+
+    // Δθ arc near the start origin
+    const o = W2S(0, 0);
+    if (Math.abs(p.dth) > 1e-6) {
+      ctx.strokeStyle = '#12b76a'; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, 34, -Math.PI/2, -Math.PI/2 - p.dth, p.dth > 0);
+      ctx.stroke();
+      const mid = -Math.PI/2 - p.dth/2;
+      pill('Δθ = ' + (p.dth * 180/Math.PI).toFixed(0) + '°',
+        o.x + Math.cos(mid)*58, o.y + Math.sin(mid)*58, '#a7f3d0', '#12b76a');
+    }
+  }
+
+  // --- derivation panel (HTML, always in sync) ---
+  function updatePanel() {
+    document.getElementById('dLval').textContent = state.dL.toFixed(1) + ' cm';
+    document.getElementById('dRval').textContent = state.dR.toFixed(1) + ' cm';
+    const dth = (state.dR - state.dL) / L;
+    const deg = dth * 180 / Math.PI;
+    document.getElementById('plug').innerHTML =
+      '&Delta;&theta; = (<span class="num-orange">' + state.dR.toFixed(1) + '</span> &minus; ' +
+      '<span class="num-blue">' + state.dL.toFixed(1) + '</span>) / 12 = ' +
+      '<b>' + dth.toFixed(3) + ' rad</b> &asymp; <b>' + deg.toFixed(1) + '&deg;</b>';
+    const v = document.getElementById('verdict');
+    if (Math.abs(dth) < 1e-3) { v.textContent = 'Equal distances → goes straight.'; v.style.color = '#475467'; }
+    else if (dth > 0) { v.textContent = 'Right wheel rolled farther → turns LEFT.'; v.style.color = '#027a48'; }
+    else { v.textContent = 'Left wheel rolled farther → turns RIGHT.'; v.style.color = '#b42318'; }
+  }
+
+  function refresh() { updatePanel(); draw(); }
+
+  // --- controls ---
+  const dLs = document.getElementById('dL'), dRs = document.getElementById('dR');
+  function clearPreset() { document.querySelectorAll('.pbtn').forEach(b => b.classList.remove('active')); }
+  dLs.addEventListener('input', () => { state.dL = +dLs.value; clearPreset(); refresh(); });
+  dRs.addEventListener('input', () => { state.dR = +dRs.value; clearPreset(); refresh(); });
+  document.querySelectorAll('.pbtn').forEach(b => {
+    b.addEventListener('click', () => {
+      state.dL = +b.dataset.l; state.dR = +b.dataset.r;
+      dLs.value = state.dL; dRs.value = state.dR;
+      clearPreset(); b.classList.add('active');
+      refresh();
+    });
+  });
+
+  // --- Streamlit height reporting ---
+  function sendHeight() {
+    const h = document.querySelector('.wrap').getBoundingClientRect().height + 12;
+    window.parent.postMessage({ isStreamlitMessage: true, type: 'streamlit:setFrameHeight', height: h }, '*');
+  }
+
+  window.addEventListener('resize', fit);
+  fit();
+  refresh();
+})();
+</script>
+</body>
+</html>

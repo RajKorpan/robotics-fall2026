@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --ink:#0b1220; --muted:#475467; --line:#d0d5dd; --accent:#2563eb;
+      --accent-soft:#eff6ff; --good:#12b76a; --bad:#f04438; --warn:#f79009;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; font-family:"Segoe UI", system-ui, -apple-system, sans-serif; color:var(--ink); }
+    #root { padding:2px; }
+    .hero {
+      border-radius:16px; padding:30px 28px; margin:0 0 18px; color:#fff;
+      background:radial-gradient(1200px 400px at 20% -10%, #1e5a2e, transparent), linear-gradient(120deg,#0f172a,#1a2d4f);
+    }
+    .hero .kicker { font-size:.8rem; letter-spacing:.12em; text-transform:uppercase; opacity:.8; font-weight:800; }
+    .hero h1 { margin:.3rem 0 .6rem; font-size:2.1rem; line-height:1.05; }
+    .hero p { margin:0; font-size:1.12rem; line-height:1.55; max-width:760px; opacity:.95; }
+    .section { border:1px solid var(--line); border-radius:16px; background:#fff; padding:22px 24px; margin:0 0 18px; }
+    .section .kicker { font-size:.76rem; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); font-weight:800; }
+    .section h3 { margin:.2rem 0 .5rem; font-size:1.45rem; }
+    .lead { font-size:1.1rem; line-height:1.55; margin:8px 0 12px; }
+    .note { font-size:.98rem; line-height:1.5; color:var(--muted); margin:8px 0; }
+    .btn { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:10px;
+      padding:.6rem 1.2rem; font-weight:800; font-size:1rem; cursor:pointer; }
+    .btn:hover { background:#f2f4f7; }
+    .btn:disabled { opacity:.4; cursor:default; }
+    .btn.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .btn.primary:hover { background:#1d4ed8; }
+    .btn.big { padding:.8rem 1.6rem; font-size:1.08rem; }
+    .center { text-align:center; }
+    .hidden { display:none; }
+
+    canvas { display:block; background:#0f172a; border-radius:12px; border:1px solid #1e293b; outline:none; }
+    canvas:focus { box-shadow:0 0 0 3px rgba(37,99,235,.45); }
+
+    .score-banner {
+      display:flex; align-items:baseline; justify-content:center; gap:10px;
+      margin:0 0 8px; padding:6px 14px; border-radius:12px;
+      background:#0b1220; border:1px solid #1e293b;
+    }
+    .score-label { font-size:0.8rem; letter-spacing:0.15em; color:#94a3b8; font-weight:800; }
+    .score-value {
+      font-size:2.6rem; font-weight:900; font-variant-numeric:tabular-nums; color:#e5e7eb;
+      transition:color 0.15s, transform 0.15s; line-height:1;
+    }
+    .score-value.bump-up { color:#34d399; transform:scale(1.18); }
+    .score-value.bump-down { color:#f87171; transform:scale(1.18); }
+
+    .play-stage { position:relative; display:inline-block; }
+    .reward-pop {
+      position:absolute; left:50%; top:8px; transform:translateX(-50%);
+      font-size:1.8rem; font-weight:900; font-variant-numeric:tabular-nums;
+      pointer-events:none; opacity:0; text-shadow:0 2px 6px rgba(0,0,0,0.5);
+    }
+    .reward-pop.show-up { animation:floatUp 0.85s ease-out; color:#34d399; }
+    .reward-pop.show-down { animation:floatUp 0.85s ease-out; color:#f87171; }
+    @keyframes floatUp {
+      0% { opacity:0; transform:translateX(-50%) translateY(8px) scale(0.8); }
+      20% { opacity:1; transform:translateX(-50%) translateY(0) scale(1.1); }
+      100% { opacity:0; transform:translateX(-50%) translateY(-34px) scale(1); }
+    }
+
+    .rounds { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
+    .roundpill { border:1px solid var(--line); border-radius:999px; padding:.35rem .8rem; font-weight:800; font-size:.9rem; color:var(--muted); }
+    .roundpill.done { background:#ecfdf3; border-color:var(--good); color:#027a48; }
+    .roundpill.active { background:var(--accent-soft); border-color:var(--accent); color:#1d4ed8; }
+
+    .ctrl-buttons { display:flex; gap:10px; justify-content:center; align-items:center; margin:10px 0; flex-wrap:wrap; }
+    .ctrl-buttons .btn { min-width:70px; font-size:1.1rem; padding:.55rem .9rem; user-select:none; }
+    .ctrl-buttons .btn:active { transform:scale(.95); }
+    .error-readout { font-size:.95rem; color:#94a3b8; text-align:center; margin:6px 0; font-variant-numeric:tabular-nums; }
+
+    .term-bars { display:flex; gap:16px; align-items:flex-end; justify-content:center; height:110px; margin:12px 0 6px; }
+    .term-bar { width:54px; border-radius:6px 6px 0 0; position:relative; transition:height .15s; min-height:2px; }
+    .term-bar .val { position:absolute; top:-20px; left:0; right:0; text-align:center; font-size:.78rem; font-weight:800; color:#e5e7eb; }
+    .term-bar .lbl { position:absolute; bottom:-22px; left:0; right:0; text-align:center; font-size:.82rem; font-weight:700; }
+
+    .insight-box {
+      margin:14px 0; padding:14px 18px; border-radius:12px;
+      border:1px solid #bfdbfe; background:var(--accent-soft); font-size:1.04rem; line-height:1.5;
+    }
+    .insight-box.green { border-color:#a7f3d0; background:#ecfdf3; }
+    .insight-box.orange { border-color:#fed7aa; background:#fff7ed; }
+
+    /* Open vs closed loop cards */
+    .loop-cards { display:flex; gap:14px; flex-wrap:wrap; margin:14px 0; }
+    .loop-card { flex:1; min-width:240px; border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+    .loop-card p { margin:6px 0 0; font-size:.98rem; line-height:1.5; color:var(--muted); }
+    .loop-card.open { border-color:#fecdca; background:#fef6f5; }
+    .loop-card.closed { border-color:#bfdbfe; background:#f5f9ff; }
+    .loop-tag { display:inline-block; font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+      padding:.15rem .55rem; border-radius:999px; margin-bottom:6px; }
+    .loop-card.open .loop-tag { background:#fee4e2; color:#b42318; }
+    .loop-card.closed .loop-tag { background:#dbeafe; color:#1d4ed8; }
+    .loop-head { font-weight:800; font-size:1.1rem; }
+
+    /* Controller-type comparison */
+    .ctrl-types { display:flex; gap:12px; flex-wrap:wrap; margin:14px 0; }
+    .ctrl-type { flex:1; min-width:200px; border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:#fff; }
+    .ctrl-type h4 { margin:0 0 4px; font-size:1.05rem; }
+    .ctrl-type .tagline { font-size:.85rem; font-weight:700; color:var(--accent); margin-bottom:6px; }
+    .ctrl-type p { margin:0; font-size:.94rem; line-height:1.45; color:var(--muted); }
+    .ctrl-type.bang { border-top:3px solid var(--warn); }
+    .ctrl-type.prop { border-top:3px solid var(--accent); }
+    .ctrl-type.pid  { border-top:3px solid var(--good); }
+
+    .sim-row { display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start; margin-top:10px; }
+    .sim-main { flex:1; min-width:300px; }
+    .sim-side { min-width:200px; max-width:260px; }
+    .sim-side .term-bars { height:90px; }
+
+    .caption { font-size:1.02rem; line-height:1.55; margin:10px 0; color:var(--muted); }
+    .caption b { color:var(--ink); }
+
+    .pill { display:inline-block; padding:.2rem .6rem; border-radius:999px; font-weight:800; font-size:.85rem; }
+    .pill.good { background:#ecfdf3; color:#027a48; }
+    .pill.bad { background:#fef3f2; color:#b42318; }
+
+    @media (max-width:640px) {
+      .hero h1 { font-size:1.6rem; }
+      .sim-row { flex-direction:column; }
+      .sim-side { max-width:100%; }
+      canvas { max-width:100%; height:auto; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root">
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="kicker">PID Control</div>
+      <h1>Stop the car at the line.</h1>
+      <p>Consider a car approaching a <b>stop sign</b>. It needs to stop at the line -- not short
+      of it, and not past it into the crosswalk. Something decides, moment by moment, how much gas
+      to apply and when to ease off. That something is the <b>controller</b>.
+      <br><br><b>First, you'll act as the controller.</b> You'll drive the car toward the line by
+      hand to see why doing this consistently is difficult. Then we'll build a formula that does it
+      smoothly, one term at a time.</p>
+    </div>
+
+    <!-- SECTION 0: OPEN VS CLOSED LOOP -->
+    <div class="section" id="sec-loop">
+      <div class="kicker">First idea</div>
+      <h3>Two ways to control a system</h3>
+      <p class="lead">This distinction underlies the rest of the lab, so it's worth naming up front.</p>
+      <div class="loop-cards">
+        <div class="loop-card open">
+          <div class="loop-tag">Open loop</div>
+          <div class="loop-head">Command without feedback.</div>
+          <p>The action is decided in advance -- for example, "apply gas for 2 seconds, then
+          release." The controller never measures the result. If conditions differ from what was
+          assumed (an incline, a low battery, a heavier load), the car stops in the wrong place and
+          the controller has no way to detect it.</p>
+        </div>
+        <div class="loop-card closed">
+          <div class="loop-tag">Closed loop (feedback)</div>
+          <div class="loop-head">Command based on measurement.</div>
+          <p>The controller continuously measures the remaining gap to the line and adjusts:
+          reducing gas as it approaches, applying more if it stalls short. Because it responds to
+          the actual state, it corrects for conditions it wasn't told about. PID is a closed-loop
+          controller.</p>
+        </div>
+      </div>
+      <p class="note">In the next step you'll act as a closed-loop controller, watching the gap and
+      correcting in real time. Notice how difficult it is to do consistently -- that difficulty
+      motivates using a formula instead.</p>
+      <button class="btn primary big" id="start-manual">Drive it manually</button>
+    </div>
+
+    <!-- MANUAL PLAY -->
+    <div class="section hidden" id="sec-manual">
+      <div class="kicker">Stop <span id="round-num">1</span> of 3</div>
+      <h3>Stop the car at the line</h3>
+      <p class="note">You get <b>one press of the gas</b> per round: hold it as long as you like,
+      then let go and coast. Once you release, the pedal is done &mdash; there is no second push and
+      no reverse. Time your single burst so the car rolls to a stop as close to the
+      <b style="color:var(--good);">line</b> as you can.</p>
+      <div class="rounds" id="rounds"></div>
+      <div class="score-banner">
+        <span class="score-label">SCORE</span>
+        <span class="score-value" id="score-big">100</span>
+      </div>
+      <div class="play-stage">
+        <canvas id="manual-canvas" width="600" height="160" tabindex="0"></canvas>
+        <div class="reward-pop" id="reward-pop"></div>
+      </div>
+      <div class="error-readout" id="error-readout">Error: 0.00 m</div>
+      <div class="ctrl-buttons">
+        <button class="btn primary" id="btn-right" style="font-size:1.3rem;">&#9654; GAS</button>
+      </div>
+      <div class="note" id="manual-timer">Time left: 8.0s</div>
+      <div class="note" id="manual-feedback"></div>
+    </div>
+
+    <!-- INSIGHT AFTER MANUAL -->
+    <div class="section hidden" id="sec-insight">
+      <div class="kicker">The problem</div>
+      <h3>Your corrections were inconsistent</h3>
+      <p class="lead" id="insight-summary"></p>
+      <div class="insight-box">
+        <b>A formula can replace the guesswork.</b> Rather than estimating each adjustment by hand,
+        a controller converts the <b>error</b> (the distance from the car to the line) directly into
+        a command. There are several ways to define that conversion.
+      </div>
+      <div class="center" style="margin-top:14px;">
+        <button class="btn primary big" id="insight-continue">Controller types</button>
+      </div>
+    </div>
+
+    <!-- SECTION 1.5: CONTROLLER TYPES -->
+    <div class="section hidden" id="sec-types">
+      <div class="kicker">Kinds of controller</div>
+      <h3>A controller is a rule from error to action</h3>
+      <p class="lead">Every controller answers the same question -- given the current error, what
+      command should be applied? -- but each uses a different rule. Here are three, from simplest to
+      most capable.</p>
+      <div class="ctrl-types">
+        <div class="ctrl-type bang">
+          <h4>Bang-bang (on/off)</h4>
+          <div class="tagline">Full command, or none.</div>
+          <p>Below the target, apply full power; at or above it, apply none. This is how a home
+          thermostat or a refrigerator operates. It is simple to implement, but because it never
+          eases in, it tends to overshoot and oscillate around the target.</p>
+        </div>
+        <div class="ctrl-type prop">
+          <h4>Proportional (P)</h4>
+          <div class="tagline">Command proportional to the error.</div>
+          <p>A large error produces a large command; a small error produces a small one. This is
+          smoother than on/off control and is the basis of PID. On its own, however, P can still
+          overshoot and may settle slightly short of the target.</p>
+        </div>
+        <div class="ctrl-type pid">
+          <h4>PID</h4>
+          <div class="tagline">Proportional, derivative, integral.</div>
+          <p>Add a <b>D</b> term that responds to how quickly the error is changing (damping the
+          approach) and an <b>I</b> term that accumulates residual error (eliminating a steady
+          offset). Together the three terms settle accurately on the target.</p>
+        </div>
+      </div>
+      <p class="lead" style="margin-top:6px;">See the simplest one in action first. A bang-bang
+      controller applies <b>full command toward the target whenever it's off</b>, and nothing once
+      it's close -- so it never settles, it chatters back and forth across the line.</p>
+      <div class="sim-row">
+        <div class="sim-main">
+          <canvas id="bb-canvas" width="600" height="160"></canvas>
+          <div class="error-readout" id="bb-error">Error: -- m</div>
+          <div class="center"><button class="btn primary" id="bb-run">Run bang-bang controller</button></div>
+        </div>
+        <div class="sim-side">
+          <div style="font-weight:700; font-size:.95rem; text-align:center; margin-bottom:4px;">Command</div>
+          <div class="term-bars" id="bb-bars">
+            <div class="term-bar" id="bb-bar-cmd" style="height:0; background:var(--warn);">
+              <div class="val">0.0</div>
+              <div class="lbl" style="color:var(--warn);">on/off</div>
+            </div>
+          </div>
+          <div class="note" style="text-align:center; font-size:.82rem;">Full push or nothing -- never in between.</div>
+        </div>
+      </div>
+      <div class="caption" id="bb-caption">Press "Run" to watch on/off control. Notice it never
+      holds still at the line.</div>
+      <div class="insight-box orange">
+        <b>Why not use bang-bang everywhere?</b> Because applying full command until arrival means
+        arriving at full speed. Systems that must settle precisely -- a car at a stop sign, a robot
+        arm, a drone, a heater near its setpoint -- need to ease in as the error shrinks. The rest of
+        this tutorial builds that behavior: P, then D, then I.
+      </div>
+      <div class="center" style="margin-top:14px;">
+        <button class="btn primary big" id="types-continue">Start with P</button>
+      </div>
+    </div>
+
+    <!-- SECTION 2: P-ONLY -->
+    <div class="section hidden" id="sec-p">
+      <div class="kicker">Proportional control</div>
+      <h3>P reacts to the current error</h3>
+      <p class="lead">The simplest smooth idea: <b>command = Kp * error</b>. Big error means big push,
+      small error means small push. The stop line is again the <b>edge of a cliff</b> -- overshooting
+      goes over. Watch what happens with <b>Kp = 2.0</b>.</p>
+      <div class="sim-row">
+        <div class="sim-main">
+          <canvas id="p-canvas" width="600" height="200"></canvas>
+          <div class="error-readout" id="p-error">Error: -- m</div>
+          <div class="center"><button class="btn primary" id="p-run">Run P controller</button></div>
+        </div>
+        <div class="sim-side">
+          <div style="font-weight:700; font-size:.95rem; text-align:center; margin-bottom:4px;">Control terms</div>
+          <div class="term-bars" id="p-bars">
+            <div class="term-bar" id="p-bar-p" style="height:0; background:var(--accent);">
+              <div class="val">0.0</div>
+              <div class="lbl" style="color:var(--accent);">P</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="caption" id="p-caption">Press "Run" to watch P-only control in action.</div>
+      <div class="insight-box orange hidden" id="p-insight">
+        <b>P overshoots -- and here that means going over the edge.</b> It applies a large command
+        when the error is large, but it has no awareness of how fast the error is closing. The car
+        still carries speed when it reaches the line, so it crosses the edge. This calls for a term
+        that acts as a <b>brake</b>.
+      </div>
+      <div class="center hidden" id="p-continue-wrap" style="margin-top:14px;">
+        <button class="btn primary big" id="p-continue">Add the brake: the D term</button>
+      </div>
+    </div>
+
+    <!-- SECTION 3: PD -->
+    <div class="section hidden" id="sec-pd">
+      <div class="kicker">Add derivative</div>
+      <h3>D brakes when approaching fast</h3>
+      <p class="lead"><b>command = Kp * error + Kd * d(error)/dt</b>. The D term looks at how fast
+      the error is <i>changing</i>. When the robot rushes toward the target, error shrinks fast --
+      so D pulls back, like a brake. Watch with <b>Kp = 2.0, Kd = 1.0</b>.</p>
+      <div class="sim-row">
+        <div class="sim-main">
+          <canvas id="pd-canvas" width="600" height="200"></canvas>
+          <div class="error-readout" id="pd-error">Error: -- m</div>
+          <div class="center"><button class="btn primary" id="pd-run">Run PD controller</button></div>
+        </div>
+        <div class="sim-side">
+          <div style="font-weight:700; font-size:.95rem; text-align:center; margin-bottom:4px;">Control terms</div>
+          <div class="term-bars" id="pd-bars">
+            <div class="term-bar" id="pd-bar-p" style="height:0; background:var(--accent);">
+              <div class="val">0.0</div>
+              <div class="lbl" style="color:var(--accent);">P</div>
+            </div>
+            <div class="term-bar" id="pd-bar-d" style="height:0; background:var(--warn);">
+              <div class="val">0.0</div>
+              <div class="lbl" style="color:var(--warn);">D</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="caption" id="pd-caption">Press "Run" to watch PD control.</div>
+      <div class="insight-box green hidden" id="pd-insight">
+        <b>Much smoother!</b> D acts like a brake -- when the error is shrinking fast, D pulls back.
+        The robot approaches the target without wild oscillation. But what if there's a constant
+        force pushing the robot off-target? P and D alone can't handle that.
+      </div>
+      <div class="center hidden" id="pd-continue-wrap" style="margin-top:14px;">
+        <button class="btn primary big" id="pd-continue">See what happens with a disturbance</button>
+      </div>
+    </div>
+
+    <!-- SECTION 4: FULL PID -->
+    <div class="section hidden" id="sec-pid">
+      <div class="kicker">Full PID</div>
+      <h3>I accumulates past error to eliminate offset</h3>
+      <p class="lead">A steady wind pushes the car <b>left</b>, away from the line. P and D get it close
+      but can't close the gap -- the wind exactly balances the P correction, leaving a
+      <b>steady-state error</b> (the car stops short). The I term fixes this:
+      <b>command = Kp * error + Ki * integral(error) + Kd * d(error)/dt</b>. Over time, I accumulates
+      the leftover error and pushes harder until the car reaches the line. Watch with
+      <b>Kp = 2.0, Ki = 0.3, Kd = 1.4</b>.</p>
+      <div class="sim-row">
+        <div class="sim-main">
+          <canvas id="pid-canvas" width="600" height="200"></canvas>
+          <div class="error-readout" id="pid-error">Error: -- m</div>
+          <div class="center">
+            <button class="btn primary" id="pid-run-pd">Run PD only (no I)</button>
+            <button class="btn primary" id="pid-run-pid" style="margin-left:8px;">Run full PID</button>
+          </div>
+        </div>
+        <div class="sim-side">
+          <div style="font-weight:700; font-size:.95rem; text-align:center; margin-bottom:4px;">Control terms</div>
+          <div class="term-bars" id="pid-bars">
+            <div class="term-bar" id="pid-bar-p" style="height:0; background:var(--accent);">
+              <div class="val">0.0</div>
+              <div class="lbl" style="color:var(--accent);">P</div>
+            </div>
+            <div class="term-bar" id="pid-bar-i" style="height:0; background:var(--good);">
+              <div class="val">0.0</div>
+              <div class="lbl" style="color:var(--good);">I</div>
+            </div>
+            <div class="term-bar" id="pid-bar-d" style="height:0; background:var(--warn);">
+              <div class="val">0.0</div>
+              <div class="lbl" style="color:var(--warn);">D</div>
+            </div>
+          </div>
+          <div class="note" id="pid-wind-note" style="text-align:center; font-size:.85rem;">Wind disturbance: -0.8 N</div>
+        </div>
+      </div>
+      <div class="caption" id="pid-caption">Try PD first to see the steady-state error, then add I to fix it.</div>
+      <div class="insight-box green hidden" id="pid-insight">
+        <b>I closes the gap.</b> When the robot is stuck slightly off-target, the integral of error
+        builds up over time, producing an ever-growing push that eventually overcomes the disturbance.
+        In the full controller, P responds to current error, D adds damping, and I removes residual offset.
+      </div>
+      <div class="center hidden" id="pid-continue-wrap" style="margin-top:14px;">
+        <button class="btn primary big" id="pid-continue">Continue</button>
+      </div>
+    </div>
+
+    <!-- SECTION 5: HANDOFF -->
+    <div class="section hidden" id="sec-done">
+      <div class="kicker">Summary</div>
+      <h3>PID control summary</h3>
+      <p class="lead">Measure the <b>error</b>, respond <b>proportionally</b>, add <b>damping</b> as
+      the target is approached, and <b>accumulate</b> residual error to remove any offset. Three
+      gains -- Kp, Ki, Kd -- define the controller. You'll tune them yourself in the next part.</p>
+      <div class="insight-box">
+        The same PID structure is used in systems such as thermostats, cruise control, drone
+        stabilization, and industrial process control. The gains determine how the controller
+        responds to error and must be selected for the dynamics and requirements of each system.
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    /* ---- Streamlit component protocol ---- */
+    function stMsg(t,d){ window.parent.postMessage(Object.assign({isStreamlitMessage:true,type:t},d||{}),"*"); }
+    function ready(){ stMsg("streamlit:componentReady",{apiVersion:1}); }
+    function setHeight(){ stMsg("streamlit:setFrameHeight",{height:document.getElementById("root").scrollHeight+8}); }
+    function show(id){ document.getElementById(id).classList.remove("hidden"); setHeight(); }
+    function showEl(el){ el.classList.remove("hidden"); setHeight(); }
+    function sendDone(){ stMsg("streamlit:setComponentValue",{value:{done:true}}); }
+    window.addEventListener("message",(e)=>{ if((e.data||{}).type==="streamlit:render") setHeight(); });
+
+    /* ---- Physics constants ---- */
+    const DT = 0.02;          /* simulation timestep (s) */
+    const MASS = 1.0;
+    const DAMPING = 1.0;   /* higher damping -> believable overshoot, not a wild fly-past */
+    const TRACK_MIN = -1.0;   /* meters */
+    const TRACK_MAX = 5.0;
+    const CMD_CLAMP = 5.0;
+    const INT_CLAMP = 3.0;
+    /* The cliff edge IS the target. The car may hang slightly over the brink,
+       but only truly falls once it goes this far past it. */
+    const FALL_TOLERANCE = 0.30;
+
+    /* ---- Drawing helpers ---- */
+    function drawTrack(ctx, pos, target, opts) {
+      opts = opts || {};
+      const W = ctx.canvas.width, H = ctx.canvas.height;
+      const pad = 40;
+      const trackY = H * 0.55;
+      const trackH = 6;
+
+      ctx.clearRect(0, 0, W, H);
+
+      /* background */
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(0, 0, W, H);
+
+      /* track rail */
+      const x0 = pad, x1 = W - pad;
+      ctx.fillStyle = "#334155";
+      ctx.fillRect(x0, trackY - trackH/2, x1 - x0, trackH);
+      ctx.fillStyle = "#475569";
+      ctx.fillRect(x0, trackY - 1, x1 - x0, 2);
+
+      /* tick marks */
+      ctx.fillStyle = "#64748b";
+      ctx.font = "11px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      for (let m = 0; m <= 4; m++) {
+        const tx = x0 + (m - TRACK_MIN) / (TRACK_MAX - TRACK_MIN) * (x1 - x0);
+        ctx.fillRect(tx - 0.5, trackY - 10, 1, 20);
+        ctx.fillText(m + "m", tx, trackY + 26);
+      }
+
+      /* target line */
+      const tgtX = x0 + (target - TRACK_MIN) / (TRACK_MAX - TRACK_MIN) * (x1 - x0);
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = "#12b76a";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(tgtX, 14);
+      ctx.lineTo(tgtX, H - 14);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#12b76a";
+      ctx.font = "bold 12px system-ui, sans-serif";
+      ctx.fillText(opts.targetLabel || "TARGET", tgtX, 12);
+
+      /* animated wind: leftward-streaming lines across the whole track */
+      if (opts.wind) {
+        const phase = opts.windPhase || 0;
+        const bandTop = 22, bandBot = H - 20;
+        const rows = 5;
+        const spacing = 46;      /* horizontal gap between streaks */
+        const streakLen = 20;
+        ctx.save();
+        ctx.lineCap = "round";
+        for (let r = 0; r < rows; r++) {
+          const y = bandTop + (r + 0.5) * (bandBot - bandTop) / rows;
+          /* offset scrolls left over time; modulo keeps streaks recycling */
+          const off = (phase * 90 + r * 17) % spacing;
+          for (let sx = x1 + spacing; sx > x0 - spacing; sx -= spacing) {
+            const hx = sx - off;
+            if (hx < x0 - streakLen || hx > x1) continue;
+            /* fade streaks near the track edges */
+            const alpha = 0.28;
+            ctx.strokeStyle = "rgba(247,144,9," + alpha + ")";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(hx, y);
+            ctx.lineTo(hx - streakLen, y);
+            ctx.stroke();
+            /* arrowhead pointing left */
+            ctx.beginPath();
+            ctx.moveTo(hx - streakLen, y);
+            ctx.lineTo(hx - streakLen + 5, y - 3);
+            ctx.moveTo(hx - streakLen, y);
+            ctx.lineTo(hx - streakLen + 5, y + 3);
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
+        /* wind label badge */
+        ctx.fillStyle = "#f79009";
+        ctx.font = "bold 11px system-ui, sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText("◀ WIND", x0, 14);
+      }
+
+      /* robot */
+      const robotX = x0 + (pos - TRACK_MIN) / (TRACK_MAX - TRACK_MIN) * (x1 - x0);
+      const robotW = 28, robotH = 22;
+      ctx.fillStyle = "#2563eb";
+      ctx.beginPath();
+      ctx.roundRect(robotX - robotW/2, trackY - robotH - 4, robotW, robotH, 5);
+      ctx.fill();
+      ctx.fillStyle = "#60a5fa";
+      ctx.beginPath();
+      ctx.arc(robotX - 6, trackY + 2, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(robotX + 6, trackY + 2, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#0f172a";
+      ctx.beginPath();
+      ctx.arc(robotX - 6, trackY + 2, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(robotX + 6, trackY + 2, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      /* error arc */
+      if (Math.abs(pos - target) > 0.05) {
+        const errColor = Math.abs(pos - target) > 0.5 ? "#f04438" : "#f79009";
+        ctx.strokeStyle = errColor;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([3, 3]);
+        const y = trackY - robotH - 12;
+        ctx.beginPath();
+        ctx.moveTo(robotX, y);
+        ctx.lineTo(tgtX, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        const midX = (robotX + tgtX) / 2;
+        ctx.fillStyle = errColor;
+        ctx.font = "bold 11px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("error: " + Math.abs(pos - target).toFixed(2) + "m", midX, y - 4);
+      }
+    }
+
+    function updateTermBars(prefix, terms) {
+      /* terms: {p, i, d} -- each a raw value */
+      const maxVal = 5.0;
+      for (const key of Object.keys(terms)) {
+        const bar = document.getElementById(prefix + "-bar-" + key);
+        if (!bar) continue;
+        const v = terms[key];
+        const h = Math.min(Math.abs(v) / maxVal, 1.0) * 80;
+        bar.style.height = Math.max(h, 2) + "px";
+        bar.querySelector(".val").textContent = v.toFixed(1);
+        bar.style.opacity = Math.abs(v) < 0.01 ? "0.3" : "1";
+      }
+    }
+
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    /* ---- Section 1: Manual control ---- */
+    const TARGETS = [1.5, 3.0, 4.2];
+    const ROUND_TIME = 8.0;
+    let manRound = 0;
+    let manState = null;
+    let manAnim = null;
+    let manScores = [];
+
+    function renderRoundPills() {
+      const host = document.getElementById("rounds");
+      let html = "";
+      for (let i = 0; i < 3; i++) {
+        const cls = i < manRound ? "done" : (i === manRound ? "active" : "");
+        html += '<span class="roundpill ' + cls + '">Round ' + (i+1) + (i < manRound ? " done" : "") + '</span>';
+      }
+      host.innerHTML = html;
+      document.getElementById("round-num").textContent = Math.min(manRound + 1, 3);
+    }
+
+    function startManualRound() {
+      const target = TARGETS[manRound];
+      manState = { pos: 0, vel: 0, target: target, score: 100, time: ROUND_TIME, done: false,
+        pushDir: 0, gasSpent: false };
+      renderRoundPills();
+      const gasBtn = document.getElementById("btn-right");
+      gasBtn.disabled = false; gasBtn.innerHTML = "&#9654; GAS";
+      document.getElementById("manual-feedback").textContent = "";
+      document.getElementById("manual-canvas").focus();
+      if (manAnim) cancelAnimationFrame(manAnim);
+      let lastT = null;
+      function tick(ts) {
+        if (!lastT) lastT = ts;
+        const elapsed = (ts - lastT) / 1000;
+        lastT = ts;
+        if (manState.done) return;
+
+        /* physics */
+        const push = manState.pushDir * 2.5;
+        const acc = (push - DAMPING * manState.vel) / MASS;
+        manState.vel += acc * DT;
+        manState.pos += manState.vel * DT;
+        manState.pos = clamp(manState.pos, TRACK_MIN + 0.05, TRACK_MAX - 0.05);
+
+        /* score penalty: proportional to error, per-frame */
+        const err = Math.abs(manState.pos - manState.target);
+        const penalty = err * 2.0 * DT;
+        manState.score = Math.max(0, manState.score - penalty);
+
+        /* timer */
+        manState.time -= DT;
+        document.getElementById("manual-timer").textContent = "Time left: " + Math.max(0, manState.time).toFixed(1) + "s";
+
+        /* draw */
+        drawTrack(document.getElementById("manual-canvas").getContext("2d"), manState.pos, manState.target, {targetLabel:"STOP LINE"});
+        document.getElementById("error-readout").textContent = "Error: " + err.toFixed(2) + " m  |  Position: " + manState.pos.toFixed(2) + " m";
+        document.getElementById("score-big").textContent = Math.round(manState.score);
+
+        if (manState.time <= 0) {
+          endManualRound();
+          return;
+        }
+        manAnim = requestAnimationFrame(tick);
+      }
+      manAnim = requestAnimationFrame(tick);
+    }
+
+    function flashReward(r) {
+      const big = document.getElementById("score-big");
+      big.classList.remove("bump-up","bump-down");
+      void big.offsetWidth;
+      big.classList.add(r >= 0 ? "bump-up" : "bump-down");
+      setTimeout(()=>big.classList.remove("bump-up","bump-down"), 200);
+      const pop = document.getElementById("reward-pop");
+      pop.classList.remove("show-up","show-down");
+      void pop.offsetWidth;
+      pop.textContent = (r >= 0 ? "+" : "") + r.toFixed(0);
+      pop.classList.add(r >= 0 ? "show-up" : "show-down");
+    }
+
+    function endManualRound() {
+      manState.done = true;
+      const score = Math.round(manState.score);
+      manScores.push(score);
+      flashReward(score >= 60 ? score : -score);
+      manRound++;
+      renderRoundPills();
+
+      const fb = document.getElementById("manual-feedback");
+      const tag = score >= 70 ? '<span class="pill good">Nice!</span>' :
+                  score >= 40 ? '<span class="pill" style="background:#fff7ed;color:#c2410c;">Okay</span>' :
+                                '<span class="pill bad">Rough</span>';
+
+      if (manRound >= 3) {
+        fb.innerHTML = tag + ' Score: <b>' + score + '</b>. All 3 rounds complete!';
+        /* show insight section */
+        const avg = Math.round(manScores.reduce((a,b)=>a+b,0) / manScores.length);
+        document.getElementById("insight-summary").innerHTML =
+          'Your scores: <b>' + manScores.join(', ') + '</b> (avg: ' + avg + '). ' +
+          'Each burst of gas was an estimate of how far the car would coast, and those ' +
+          'estimates varied from stop to stop -- sometimes overshooting, sometimes stopping ' +
+          'short. A controller applies the same rule every time, which is what makes it consistent.';
+        setTimeout(()=>{
+          show("sec-insight");
+          document.getElementById("sec-insight").scrollIntoView({behavior:"smooth",block:"start"});
+        }, 600);
+      } else {
+        fb.innerHTML = tag + ' Score: <b>' + score + '</b>. ' +
+          '<button class="btn primary" id="next-round-btn">Next round (target: ' + TARGETS[manRound] + 'm)</button>';
+        document.getElementById("next-round-btn").onclick = () => startManualRound();
+      }
+      setHeight();
+    }
+
+    /* Manual gas: ONE hold-and-release per round. Press once, hold as long as you
+       like, then let go -- that single burst is your only shot to coast to the line. */
+    function pressGas() {
+      if (!manState || manState.done || manState.gasSpent) return;
+      manState.pushDir = 1;
+    }
+    function releaseGas() {
+      if (!manState) return;
+      if (manState.pushDir === 1) {
+        /* the one allowed burst just ended -> lock the pedal for the rest of the round */
+        manState.pushDir = 0;
+        manState.gasSpent = true;
+        const b = document.getElementById("btn-right");
+        b.disabled = true; b.textContent = "GAS USED";
+      }
+    }
+
+    (function setupGasButton() {
+      const btn = document.getElementById("btn-right");
+      btn.addEventListener("pointerdown", (e) => { e.preventDefault(); pressGas(); });
+      btn.addEventListener("pointerup", releaseGas);
+      btn.addEventListener("pointerleave", releaseGas);
+      btn.addEventListener("pointercancel", releaseGas);
+    })();
+
+    document.getElementById("manual-canvas").addEventListener("pointerdown", () => {
+      document.getElementById("manual-canvas").focus();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" && !e.repeat) { e.preventDefault(); pressGas(); }
+    });
+    document.addEventListener("keyup", (e) => {
+      if (e.key === "ArrowRight") releaseGas();
+    });
+
+    document.getElementById("start-manual").onclick = () => {
+      show("sec-manual");
+      startManualRound();
+      document.getElementById("sec-manual").scrollIntoView({behavior:"smooth",block:"start"});
+    };
+
+    /* ---- Automated controller simulation engine ---- */
+    function runSim(canvasId, errorId, captionId, barsPrefix, opts, onDone) {
+      /*
+        opts: { Kp, Ki, Kd, target, wind, duration, startPos }
+        Draws on the canvas, updates error readout & term bars.
+        Calls onDone() when finished.
+      */
+      const ctx = document.getElementById(canvasId).getContext("2d");
+      const Kp = opts.Kp || 0, Ki = opts.Ki || 0, Kd = opts.Kd || 0;
+      const target = opts.target || 2.0;
+      const wind = opts.wind || 0;
+      const duration = opts.duration || 6.0;
+      const startPos = opts.startPos !== undefined ? opts.startPos : 0;
+
+      /* The cliff edge is the target itself. A small overshoot leaves the car
+         teetering on the brink; only a large one (P-only) actually goes over. */
+      const fallAt = target + FALL_TOLERANCE;
+
+      let pos = startPos, vel = 0, integral = 0, prevError = target - startPos;
+      let t = 0;
+      let animId = null;
+      let lastTs = null;
+      let settledSteps = 0;
+      let finalErr = null;
+      let fall = 0, falling = false;
+
+      function tick(ts) {
+        if (!lastTs) lastTs = ts;
+        lastTs = ts;
+
+        if (falling) {
+          fall += 0.035;
+          drawCliffScene(ctx, pos, target,
+            { wind: wind !== 0, windPhase: t, edgeLabel: "CLIFF EDGE", fall: fall,
+              label: "Overshot -- over the edge" });
+          if (fall < 1.3) { animId = requestAnimationFrame(tick); }
+          else if (onDone) onDone({ finalErr: Math.abs(target - pos), settledSteps, pos, fell: true });
+          return;
+        }
+
+        /* run multiple physics steps per frame for accuracy */
+        const stepsPerFrame = 3;
+        for (let s = 0; s < stepsPerFrame; s++) {
+          if (t >= duration) break;
+          const error = target - pos;
+          const derivative = (error - prevError) / DT;
+          integral = clamp(integral + error * DT, -INT_CLAMP, INT_CLAMP);
+
+          const pTerm = Kp * error;
+          const iTerm = Ki * integral;
+          const dTerm = Kd * derivative;
+          let cmd = clamp(pTerm + iTerm + dTerm, -CMD_CLAMP, CMD_CLAMP);
+
+          const acc = (cmd + wind - DAMPING * vel) / MASS;
+          vel += acc * DT;
+          pos += vel * DT;
+          pos = clamp(pos, TRACK_MIN + 0.05, TRACK_MAX - 0.05);
+          prevError = error;
+          t += DT;
+
+          if (s === stepsPerFrame - 1) {
+            const terms = { p: pTerm };
+            if (Ki) terms.i = iTerm;
+            if (Kd) terms.d = dTerm;
+            updateTermBars(barsPrefix, terms);
+            if (document.getElementById(errorId))
+              document.getElementById(errorId).textContent = "Error: " + Math.abs(error).toFixed(3) + " m  |  Position: " + pos.toFixed(2) + " m";
+          }
+
+          if (Math.abs(error) < 0.03) settledSteps++;
+
+          if (pos > fallAt) { falling = true; break; }   /* tipped past the brink */
+        }
+
+        if (falling) { animId = requestAnimationFrame(tick); return; }
+
+        drawCliffScene(ctx, pos, target, { wind: wind !== 0, windPhase: t, edgeLabel: "CLIFF EDGE" });
+
+        if (t >= duration) {
+          finalErr = Math.abs(target - pos);
+          if (onDone) onDone({ finalErr, settledSteps, pos, fell: false });
+          return;
+        }
+        animId = requestAnimationFrame(tick);
+      }
+      animId = requestAnimationFrame(tick);
+    }
+
+    /* ---- Section 1.5: Controller types ---- */
+    document.getElementById("insight-continue").onclick = () => {
+      show("sec-types");
+      drawTrack(document.getElementById("bb-canvas").getContext("2d"), 0, 2.0);
+      document.getElementById("sec-types").scrollIntoView({behavior:"smooth",block:"start"});
+    };
+
+    /* Bang-bang (on/off) demo: full command toward the target outside a small
+       deadband, nothing inside it -- so it chatters and never settles. */
+    let bbAnim = null;
+    document.getElementById("bb-run").onclick = () => {
+      const btn = document.getElementById("bb-run");
+      btn.disabled = true;
+      document.getElementById("bb-caption").textContent = "Running bang-bang (on/off) control...";
+      const ctx = document.getElementById("bb-canvas").getContext("2d");
+      const target = 2.0, duration = 7.0, deadband = 0.08;
+      let pos = 0, vel = 0, t = 0, flips = 0, lastSign = 0;
+      if (bbAnim) cancelAnimationFrame(bbAnim);
+      function tick() {
+        for (let s = 0; s < 3 && t < duration; s++) {
+          const error = target - pos;
+          /* on/off law: full push toward target, or zero inside the deadband */
+          let cmd = 0;
+          if (Math.abs(error) > deadband) cmd = error > 0 ? CMD_CLAMP : -CMD_CLAMP;
+          const sign = cmd > 0 ? 1 : (cmd < 0 ? -1 : 0);
+          if (sign !== 0 && lastSign !== 0 && sign !== lastSign) flips++;
+          if (sign !== 0) lastSign = sign;
+          const acc = (cmd - DAMPING * vel) / MASS;
+          vel += acc * DT;
+          pos += vel * DT;
+          pos = clamp(pos, TRACK_MIN + 0.05, TRACK_MAX - 0.05);
+          t += DT;
+          if (s === 2) {
+            updateTermBars("bb", { cmd: cmd });
+            document.getElementById("bb-error").textContent =
+              "Error: " + Math.abs(error).toFixed(3) + " m  |  Command: " + (cmd > 0 ? "+FULL" : (cmd < 0 ? "-FULL" : "OFF"));
+          }
+        }
+        drawTrack(ctx, pos, target, { targetLabel: "TARGET" });
+        if (t < duration) { bbAnim = requestAnimationFrame(tick); }
+        else {
+          document.getElementById("bb-caption").innerHTML =
+            'Bang-bang never settles: the command slammed between full-on and full-off about <b>' +
+            flips + ' times</b>, so the robot oscillates around the target instead of stopping on it. ' +
+            'Proportional control fixes this by easing off as the error shrinks.';
+          btn.disabled = false;
+        }
+      }
+      bbAnim = requestAnimationFrame(tick);
+    };
+
+    /* ---- Section 2: P-only ---- */
+    document.getElementById("types-continue").onclick = () => {
+      show("sec-p");
+      drawCliffScene(document.getElementById("p-canvas").getContext("2d"), 0, 2.0, {edgeLabel:"CLIFF EDGE"});
+      document.getElementById("sec-p").scrollIntoView({behavior:"smooth",block:"start"});
+    };
+
+    document.getElementById("p-run").onclick = () => {
+      document.getElementById("p-run").disabled = true;
+      document.getElementById("p-caption").textContent = "Running P-only controller (Kp=2.0)...";
+      runSim("p-canvas", "p-error", "p-caption", "p", {
+        Kp: 2.0, Ki: 0, Kd: 0, target: 2.0, duration: 7.0
+      }, (res) => {
+        document.getElementById("p-caption").innerHTML = res.fell
+          ? '<b>P-only drove off the cliff.</b> It pushes hard toward the target but has no way to ' +
+            'slow down, so it still carries speed at the edge and goes over. It needs a brake.'
+          : 'P-only finished. Final error: <b>' + res.finalErr.toFixed(3) + ' m</b>. It overshoots ' +
+            'because it has no way to slow down as it approaches.';
+        showEl(document.getElementById("p-insight"));
+        showEl(document.getElementById("p-continue-wrap"));
+        document.getElementById("p-run").disabled = false;
+      });
+    };
+
+    /* ---- Section 3: PD ---- */
+    document.getElementById("p-continue").onclick = () => {
+      show("sec-pd");
+      drawCliffScene(document.getElementById("pd-canvas").getContext("2d"), 0, 2.0, {edgeLabel:"CLIFF EDGE"});
+      document.getElementById("sec-pd").scrollIntoView({behavior:"smooth",block:"start"});
+    };
+
+    document.getElementById("pd-run").onclick = () => {
+      document.getElementById("pd-run").disabled = true;
+      document.getElementById("pd-caption").textContent = "Running PD controller (Kp=2.0, Kd=1.0)...";
+      runSim("pd-canvas", "pd-error", "pd-caption", "pd", {
+        Kp: 2.0, Ki: 0, Kd: 1.0, target: 2.0, duration: 7.0
+      }, (res) => {
+        document.getElementById("pd-caption").innerHTML =
+          'PD finished. Final error: <b>' + res.finalErr.toFixed(3) + ' m</b>. ' +
+          'Much less oscillation! The D term damped the overshoot.';
+        showEl(document.getElementById("pd-insight"));
+        showEl(document.getElementById("pd-continue-wrap"));
+        document.getElementById("pd-run").disabled = false;
+      });
+    };
+
+    /* ---- Section 4: Full PID ---- */
+    document.getElementById("pd-continue").onclick = () => {
+      show("sec-pid");
+      drawCliffScene(document.getElementById("pid-canvas").getContext("2d"), 0, 2.0, {wind:true, edgeLabel:"CLIFF EDGE"});
+      document.getElementById("sec-pid").scrollIntoView({behavior:"smooth",block:"start"});
+    };
+
+    let pidRanPD = false, pidRanPID = false;
+
+    document.getElementById("pid-run-pd").onclick = () => {
+      document.getElementById("pid-run-pd").disabled = true;
+      document.getElementById("pid-run-pid").disabled = true;
+      document.getElementById("pid-caption").textContent = "Running PD only (no I term) with wind disturbance...";
+      /* reset bars: show p and d only */
+      updateTermBars("pid", {p:0, i:0, d:0});
+      runSim("pid-canvas", "pid-error", "pid-caption", "pid", {
+        Kp: 2.0, Ki: 0, Kd: 1.4, target: 2.0, wind: -0.8, duration: 8.0
+      }, (res) => {
+        document.getElementById("pid-caption").innerHTML =
+          'PD with wind: final error <b>' + res.finalErr.toFixed(3) + ' m</b>. ' +
+          'The car gets close but <b>never reaches the line</b> -- the wind creates a permanent offset that P alone can\'t overcome. Now try adding I.';
+        document.getElementById("pid-run-pd").disabled = false;
+        document.getElementById("pid-run-pid").disabled = false;
+        pidRanPD = true;
+        maybeShowPIDInsight();
+      });
+    };
+
+    document.getElementById("pid-run-pid").onclick = () => {
+      document.getElementById("pid-run-pd").disabled = true;
+      document.getElementById("pid-run-pid").disabled = true;
+      document.getElementById("pid-caption").textContent = "Running full PID (Kp=2.0, Ki=0.3, Kd=1.4) with wind...";
+      updateTermBars("pid", {p:0, i:0, d:0});
+      runSim("pid-canvas", "pid-error", "pid-caption", "pid", {
+        Kp: 2.0, Ki: 0.3, Kd: 1.4, target: 2.0, wind: -0.8, duration: 12.0
+      }, (res) => {
+        document.getElementById("pid-caption").innerHTML =
+          'Full PID with wind: final error <b>' + res.finalErr.toFixed(3) + ' m</b>. ' +
+          'The I term accumulated the leftover error and pushed the robot all the way to the target!';
+        document.getElementById("pid-run-pd").disabled = false;
+        document.getElementById("pid-run-pid").disabled = false;
+        pidRanPID = true;
+        maybeShowPIDInsight();
+      });
+    };
+
+    function maybeShowPIDInsight() {
+      if (pidRanPID) {
+        showEl(document.getElementById("pid-insight"));
+        showEl(document.getElementById("pid-continue-wrap"));
+      }
+    }
+
+    /* ---- Section 5: Handoff ---- */
+    document.getElementById("pid-continue").onclick = () => {
+      show("sec-done");
+      document.getElementById("sec-done").scrollIntoView({behavior:"smooth",block:"start"});
+      sendDone();
+    };
+
+    /* Reusable cliff scene: road ending at a cliff edge placed at `target`.
+       `fall` (0..1+) drives the car physically off the edge and down out of view.
+       Used by the P/PD/PID tutorial sims. */
+    function drawCliffScene(ctx, pos, target, opts) {
+      opts = opts || {};
+      const W = ctx.canvas.width, H = ctx.canvas.height;
+      const pad = 40;
+      const roadY = H * 0.58;
+      const x0 = pad, x1 = W - pad;
+      const edgeX = x0 + (target - TRACK_MIN) / (TRACK_MAX - TRACK_MIN) * (x1 - x0);
+      const fall = Math.max(0, opts.fall || 0);
+
+      ctx.clearRect(0, 0, W, H);
+      /* sky */
+      ctx.fillStyle = "#0f172a"; ctx.fillRect(0, 0, W, H);
+      /* chasm below/right of the edge */
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(edgeX, roadY, W - edgeX, H - roadY);
+      /* rocky cliff face under the edge */
+      ctx.strokeStyle = "rgba(100,116,139,0.35)"; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(edgeX, roadY);
+      ctx.lineTo(edgeX - 6, roadY + 22);
+      ctx.lineTo(edgeX + 4, roadY + 40);
+      ctx.lineTo(edgeX - 3, H);
+      ctx.stroke();
+      /* road up to the edge */
+      ctx.fillStyle = "#334155"; ctx.fillRect(0, roadY, edgeX, 8);
+      ctx.fillStyle = "#475569"; ctx.fillRect(0, roadY - 1, edgeX, 2);
+      /* dashed centre line on the road */
+      ctx.strokeStyle = "rgba(226,232,240,0.25)"; ctx.lineWidth = 2; ctx.setLineDash([10, 10]);
+      ctx.beginPath(); ctx.moveTo(0, roadY + 4); ctx.lineTo(edgeX, roadY + 4); ctx.stroke();
+      ctx.setLineDash([]);
+      /* cliff-edge / stop line marker */
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = "#12b76a"; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(edgeX, 14); ctx.lineTo(edgeX, roadY); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#12b76a"; ctx.font = "bold 12px system-ui, sans-serif";
+      ctx.textAlign = "center"; ctx.fillText(opts.edgeLabel || "STOP LINE = CLIFF EDGE", edgeX, 12);
+
+      /* animated wind streaks (PID demo): the wind pushes the car LEFT, so the
+         streaks scroll left and their arrowheads point left. */
+      if (opts.wind) {
+        const phase = opts.windPhase || 0;
+        const spacing = 46, streakLen = 18;
+        ctx.save(); ctx.lineCap = "round";
+        for (let r = 0; r < 3; r++) {
+          const y = 22 + r * 12;
+          const off = (phase * 90 + r * 17) % spacing;
+          for (let sx = edgeX + spacing; sx > x0 - spacing; sx -= spacing) {
+            const hx = sx - off;             /* right end of the streak */
+            const tipX = hx - streakLen;     /* left end (arrow tip) */
+            if (tipX > edgeX || hx < x0) continue;
+            ctx.strokeStyle = "rgba(247,144,9,0.28)"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(hx, y); ctx.lineTo(tipX, y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(tipX, y);
+            ctx.lineTo(tipX + 5, y - 3);
+            ctx.moveTo(tipX, y); ctx.lineTo(tipX + 5, y + 3); ctx.stroke();
+          }
+        }
+        ctx.restore();
+        ctx.fillStyle = "rgba(247,144,9,0.85)"; ctx.font = "bold 11px system-ui, sans-serif";
+        ctx.textAlign = "left"; ctx.fillText("◀ WIND", x0 + 2, 14);
+      }
+
+      /* error arc while still on the road */
+      if (fall === 0 && Math.abs(pos - target) > 0.05) {
+        const robotXe = x0 + (pos - TRACK_MIN) / (TRACK_MAX - TRACK_MIN) * (x1 - x0);
+        const errColor = Math.abs(pos - target) > 0.5 ? "#f04438" : "#f79009";
+        ctx.strokeStyle = errColor; ctx.lineWidth = 2; ctx.setLineDash([3, 3]);
+        const yA = roadY - 34;
+        ctx.beginPath(); ctx.moveTo(robotXe, yA); ctx.lineTo(edgeX, yA); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = errColor; ctx.font = "bold 11px system-ui, sans-serif";
+        ctx.fillText("error: " + Math.abs(pos - target).toFixed(2) + "m", (robotXe + edgeX) / 2, yA - 4);
+      }
+
+      /* car position: on the road it tracks pos; once falling it leaves the edge,
+         arcs forward a little and accelerates downward (gravity ~ fall^2). */
+      let carX, carY, tilt;
+      if (fall <= 0) {
+        carX = x0 + (pos - TRACK_MIN) / (TRACK_MAX - TRACK_MIN) * (x1 - x0);
+        carY = roadY - 10;
+        tilt = 0;
+      } else {
+        carX = edgeX + 14 + fall * 26;                 /* drifts past the edge */
+        carY = (roadY - 10) + fall * fall * (H * 0.9);  /* accelerating fall */
+        tilt = Math.min(1.6, fall * 1.9);               /* tips nose-down */
+      }
+      const over = fall > 0;
+      ctx.save();
+      ctx.translate(carX, carY);
+      ctx.rotate(tilt);
+      /* body */
+      ctx.fillStyle = over ? "#f04438" : "#2563eb";
+      ctx.beginPath(); ctx.roundRect(-15, -10, 30, 15, 4); ctx.fill();
+      /* cabin */
+      ctx.fillStyle = over ? "#fca5a5" : "#93c5fd";
+      ctx.beginPath(); ctx.roundRect(-7, -16, 14, 8, 3); ctx.fill();
+      /* wheels */
+      ctx.fillStyle = "#0b1220";
+      ctx.beginPath(); ctx.arc(-8, 6, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(8, 6, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      if (opts.label) {
+        ctx.fillStyle = over ? "#f87171" : "#34d399";
+        ctx.font = "bold 14px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(opts.label, W / 2, H - 12);
+      }
+    }
+
+    /* ---- Init ---- */
+    setHeight();
+    ready();
+  </script>
+</body>
+</html>

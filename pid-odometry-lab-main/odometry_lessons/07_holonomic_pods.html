@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Holonomic Odometry Pods</title>
+<style>
+  :root {
+    --ink: #182230;
+    --muted: #475467;
+    --accent: #2563eb;
+    --orange: #d97706;
+    --green: #079455;
+    --pink: #db2777;
+    --card: #ffffff;
+    --border: #d0d5dd;
+    --canvas: #111827;
+    --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #f2f4f7; font-family: var(--font); color: var(--ink); }
+  .wrap { width: 100%; max-width: 960px; margin: 0 auto; padding: 8px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; }
+  .header { padding: 10px 14px; }
+  .header h1 { margin: 0; font-size: 18px; }
+  .header p { margin: 3px 0 0; font-size: 12px; color: var(--muted); }
+  .slides { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px; }
+  .slides button {
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--ink);
+    padding: 8px 6px;
+    font: 700 12px var(--font);
+    cursor: pointer;
+  }
+  .slides button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .canvas-card { padding: 0; overflow: hidden; line-height: 0; }
+  canvas { display: block; width: 100%; height: 390px; background: var(--canvas); }
+  .explain {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .box { border: 1px solid #e4e7ec; border-radius: 8px; background: #fbfcfe; padding: 8px 10px; }
+  .box strong { display: block; margin-bottom: 3px; }
+  .formula { color: #027a48; font: 800 12px ui-monospace, Consolas, monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card header">
+    <h1>Holonomic drive + two odometry pods</h1>
+    <p>Before tuning, identify what the robot can do, where the pods sit, and what each slider changes.</p>
+  </div>
+  <div class="card slides">
+    <button class="active" data-slide="0">1. Holonomic motion</button>
+    <button data-slide="1">2. Pod layout</button>
+    <button data-slide="2">3. What tuning means</button>
+    <button data-slide="3">4. The test</button>
+  </div>
+  <div class="card canvas-card">
+    <canvas id="c" width="940" height="390"></canvas>
+  </div>
+  <div class="card explain">
+    <div class="box">
+      <strong id="title">Holonomic motion</strong>
+      <span id="body">A holonomic drivetrain can move sideways without turning. That means forward distance and strafe distance are separate things to measure.</span>
+    </div>
+    <div class="box">
+      <strong>What to tune</strong>
+      <span class="formula" id="formula">estimated inches = pod ticks × pod scale</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+  const buttons = Array.from(document.querySelectorAll(".slides button"));
+  const title = document.getElementById("title");
+  const body = document.getElementById("body");
+  const formula = document.getElementById("formula");
+  let slide = 0;
+  let t0 = performance.now();
+
+  const slides = [
+    {
+      title: "Holonomic motion",
+      body: "A holonomic drivetrain can move forward/back and strafe left/right. In FTC this is usually a mecanum or X-drive robot.",
+      formula: "forward command and strafe command are independent",
+    },
+    {
+      title: "Two odometry pods",
+      body: "The forward pod rolls when the robot moves forward. The sideways pod rolls when the robot strafes. Together they estimate x and y.",
+      formula: "x from strafe pod, y from forward pod",
+    },
+    {
+      title: "Pod scale tuning",
+      body: "If the pod wheel diameter, ticks per rev, or mounting angle is off, the estimate is stretched or skewed. The sliders correct those errors.",
+      formula: "true 60 in, odom 56 in -> increase that pod scale",
+    },
+    {
+      title: "Test sequence",
+      body: "Calibration commands are simple single-axis moves. The final test chains several moves and checks max position error.",
+      formula: "pass when max error < 3 in",
+    },
+  ];
+
+  buttons.forEach(btn => btn.addEventListener("click", () => {
+    slide = +btn.dataset.slide;
+    buttons.forEach(b => b.classList.toggle("active", b === btn));
+    title.textContent = slides[slide].title;
+    body.textContent = slides[slide].body;
+    formula.textContent = slides[slide].formula;
+    t0 = performance.now();
+  }));
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function label(text, x, y, color) {
+    ctx.font = "800 13px 'Segoe UI', system-ui, sans-serif";
+    const w = ctx.measureText(text).width + 18;
+    ctx.fillStyle = "rgba(15,23,42,0.9)";
+    roundRect(x - w / 2, y - 13, w, 26, 7);
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, x, y);
+  }
+
+  function arrow(x1, y1, x2, y2, color, text) {
+    const a = Math.atan2(y2 - y1, x2 - x1);
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - 12 * Math.cos(a - 0.45), y2 - 12 * Math.sin(a - 0.45));
+    ctx.lineTo(x2 - 12 * Math.cos(a + 0.45), y2 - 12 * Math.sin(a + 0.45));
+    ctx.closePath();
+    ctx.fill();
+    if (text) label(text, (x1 + x2) / 2, (y1 + y2) / 2 - 18, color);
+  }
+
+  function robot(cx, cy, rot) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rot);
+    ctx.fillStyle = "#1f2937";
+    ctx.strokeStyle = "rgba(255,255,255,0.85)";
+    ctx.lineWidth = 2;
+    roundRect(-62, -45, 124, 90, 12);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#374151";
+    [["fl",-52,-36],["fr",32,-36],["bl",-52,24],["br",32,24]].forEach(([,x,y]) => {
+      roundRect(x, y, 20, 12, 4); ctx.fill();
+    });
+    ctx.restore();
+  }
+
+  function pod(x, y, angle, color, name) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.fillStyle = color;
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    roundRect(-30, -9, 60, 18, 7);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+    label(name, x, y + 34, color);
+  }
+
+  function drawBase() {
+    ctx.fillStyle = "#111827";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.lineWidth = 1;
+    for (let x = 0; x < canvas.width; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+    for (let y = 0; y < canvas.height; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+  }
+
+  function draw() {
+    const tt = (performance.now() - t0) / 1000;
+    drawBase();
+    const cx = 300 + (slide === 0 ? Math.sin(tt * 1.8) * 50 : 0);
+    const cy = 205 + (slide === 0 ? Math.cos(tt * 1.4) * 28 : 0);
+    robot(cx, cy, 0);
+    if (slide === 0) {
+      arrow(cx, cy, cx + 120, cy, "#d97706", "strafe");
+      arrow(cx, cy, cx, cy - 110, "#2563eb", "forward");
+      label("moves sideways without rotating", 650, 110, "#a7f3d0");
+    } else if (slide === 1) {
+      pod(cx, cy - 58, 0, "#2563eb", "forward pod");
+      pod(cx + 72, cy, Math.PI / 2, "#d97706", "strafe pod");
+      arrow(cx - 150, cy - 58, cx - 70, cy - 58, "#2563eb", "reads forward");
+      arrow(cx + 72, cy + 116, cx + 72, cy + 50, "#d97706", "reads strafe");
+    } else if (slide === 2) {
+      pod(cx, cy - 58, 0, "#2563eb", "forward scale");
+      pod(cx + 72, cy, Math.PI / 2, "#d97706", "strafe scale");
+      ctx.strokeStyle = "#d97706";
+      ctx.lineWidth = 5;
+      ctx.setLineDash([10, 6]);
+      ctx.beginPath(); ctx.moveTo(560, 252); ctx.lineTo(735, 252); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = "#2563eb";
+      ctx.beginPath(); ctx.moveTo(560, 200); ctx.lineTo(780, 200); ctx.stroke();
+      label("true move", 670, 180, "#93c5fd");
+      label("odom too short -> scale up", 655, 276, "#fed7aa");
+    } else {
+      const pts = [[545,270],[670,270],[670,150],[760,150],[760,245]];
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.lineWidth = 8;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      pts.forEach(([x,y], i) => i ? ctx.lineTo(x,y) : ctx.moveTo(x,y));
+      ctx.stroke();
+      const idx = Math.floor((tt * 1.8) % (pts.length - 1));
+      const p = pts[idx], q = pts[idx + 1];
+      const f = (tt * 1.8) % 1;
+      const x = p[0] + (q[0] - p[0]) * f;
+      const y = p[1] + (q[1] - p[1]) * f;
+      robot(x, y, 0);
+      label("test sequence", 660, 105, "#e5e7eb");
+      label("max error < 3 in", 660, 320, "#a7f3d0");
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+</body>
+</html>

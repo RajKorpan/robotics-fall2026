@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --ink: #182230;
+      --muted: #667085;
+      --line: #d0d5dd;
+      --soft: #f8fafc;
+      --blue: #2563eb;
+      --orange: #d97706;
+      --green: #079455;
+      --red: #d92d20;
+      --dark: #111827;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; color: var(--ink); background: #fff; }
+    #root { padding: 8px; }
+    .layout { display: grid; grid-template-columns: minmax(360px, 1.25fr) minmax(300px, 0.9fr); gap: 14px; align-items: start; }
+    @media (max-width: 820px) { .layout { grid-template-columns: 1fr; } }
+    .stage { position: relative; border: 1px solid #1f2937; border-radius: 8px; background: var(--dark); padding: 8px; }
+    canvas { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; border-radius: 6px; }
+    .hud { position: absolute; top: 16px; left: 16px; right: 16px; display: flex; justify-content: space-between; pointer-events: none; gap: 8px; }
+    .hud-card { border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; background: rgba(15,23,42,0.78); color: #e5e7eb; padding: 8px 10px; min-width: 120px; }
+    .hud-label { font-size: 0.66rem; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 800; }
+    .hud-value { margin-top: 1px; font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .panel { display: flex; flex-direction: column; gap: 10px; }
+    .card { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 12px 14px; }
+    h3 { margin: 0 0 7px; font-size: 0.93rem; }
+    .copy { color: var(--muted); font-size: 0.8rem; line-height: 1.35; margin: 0 0 8px; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    button {
+      border: 1px solid var(--line); border-radius: 6px; background: var(--soft); color: var(--ink);
+      padding: 7px 10px; font: 700 0.78rem "Segoe UI", system-ui, sans-serif; cursor: pointer;
+    }
+    button:hover { background: #eef2f6; }
+    button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+    button.danger { background: #fff; border-color: #fda29b; color: var(--red); }
+    button.active { background: #111827; color: #fff; border-color: #111827; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .slider-row { display: grid; grid-template-columns: 116px 1fr 64px; gap: 9px; align-items: center; margin: 8px 0; }
+    .slider-row label { font-size: 0.78rem; color: var(--ink); font-weight: 700; }
+    .slider-row input { width: 100%; accent-color: var(--blue); }
+    .slider-row span { text-align: right; font-weight: 800; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+    .meters { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .meter { border: 1px solid #e4e7ec; border-radius: 7px; padding: 7px 8px; background: #fbfcfe; }
+    .meter .label { font-size: 0.66rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 800; }
+    .meter .value { margin-top: 1px; font-size: 0.95rem; font-weight: 850; font-variant-numeric: tabular-nums; }
+    .wide { grid-column: 1 / -1; }
+    .status { border-left: 4px solid var(--blue); background: #eff6ff; }
+    .status.pass { border-left-color: var(--green); background: #f0fdf4; }
+    .status.fail { border-left-color: var(--red); background: #fff5f5; }
+    .legend { display: flex; gap: 12px; color: rgba(255,255,255,0.76); font-size: 0.74rem; padding: 7px 8px 1px; }
+    .legend span::before { content: ""; display: inline-block; width: 15px; height: 3px; margin-right: 5px; vertical-align: middle; border-radius: 99px; }
+    .truth::before { background: var(--blue); }
+    .odom::before { background: var(--orange); }
+    .target::before { background: rgba(255,255,255,0.7); }
+  </style>
+</head>
+<body>
+<div id="root">
+  <div class="layout">
+    <div class="stage">
+      <canvas id="cv" width="560" height="560"></canvas>
+      <div class="hud">
+        <div class="hud-card"><div class="hud-label">Final error</div><div class="hud-value" id="hud-final">--</div></div>
+        <div class="hud-card"><div class="hud-label">Max error</div><div class="hud-value" id="hud-max">--</div></div>
+      </div>
+      <div class="legend">
+        <span class="target">target</span>
+        <span class="truth">true robot</span>
+        <span class="odom">odometry</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="card">
+        <h3>Holonomic odometry</h3>
+        <p class="copy">This robot can drive forward/back and strafe sideways. It uses two odometry pods: a forward pod for forward distance and a strafe pod for sideways distance.</p>
+        <div class="btn-row">
+          <button onclick="runLoop('forward')">Loop forward/back</button>
+          <button onclick="runLoop('strafe')">Loop side/side</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Pod tuning</h3>
+        <p class="copy">Run a slow loop, then tune each pod's inches per encoder tick. Motion ramps up and down so the trace behaves more like a real drivetrain.</p>
+        <div class="slider-row">
+          <label>Forward in/tick</label>
+          <input id="fScale" type="range" min="0.0430" max="0.0570" step="0.0001" value="0.0530">
+          <span id="fVal">0.0530</span>
+        </div>
+        <div class="slider-row">
+          <label>Strafe in/tick</label>
+          <input id="sScale" type="range" min="0.0430" max="0.0570" step="0.0001" value="0.0465">
+          <span id="sVal">0.0465</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Test sequence</h3>
+        <p class="copy">The test runs a drive sequence through several field positions. Pass when max error is under 3 inches.</p>
+        <div class="btn-row">
+          <button class="primary" id="testBtn" onclick="runTest()">Run test sequence</button>
+          <button class="danger" onclick="resetAll()">Reset</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Readout</h3>
+        <div class="meters">
+          <div class="meter"><div class="label">True pose</div><div class="value" id="truePose">0, 0</div></div>
+          <div class="meter"><div class="label">Odom pose</div><div class="value" id="odomPose">0, 0</div></div>
+          <div class="meter"><div class="label">Current error</div><div class="value" id="curErr">0.0 in</div></div>
+          <div class="meter"><div class="label">Test status</div><div class="value" id="statusText">not run</div></div>
+          <div class="meter wide status" id="statusBox"><div class="label">Target</div><div class="value" id="targetText">Use commands to calibrate, then run test.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function sendMessage(type, data) {
+  window.parent.postMessage({ isStreamlitMessage: true, type, ...data }, "*");
+}
+sendMessage("streamlit:componentReady", { apiVersion: 1 });
+function setHeight() {
+  sendMessage("streamlit:setFrameHeight", { height: document.getElementById("root").scrollHeight + 4 });
+}
+window.addEventListener("load", setHeight);
+window.addEventListener("resize", setHeight);
+window.addEventListener("message", e => { if (e.data && e.data.type === "streamlit:render") setHeight(); });
+
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+const PX = 4.2;
+const ORIGIN = { x: 110, y: 450 };
+const TRUE_STRAFE_SCALE = 1.000;
+const TRUE_FORWARD_SCALE = 0.965;
+const PASS_IN = 3.0;
+const ACCEL_MULT = 1.25;
+const BASE_IN_PER_TICK = 0.05;
+
+let truePose = { x: 0, y: 0 };
+let odomPose = { x: 0, y: 0 };
+let truePath = [[0, 0]];
+let odomPath = [[0, 0]];
+let measuredDeltas = [];
+let targets = [];
+let lastResult = { passed: false, maxError: 999, finalError: 999, params: {} };
+let running = false;
+let runToken = 0;
+const recordingCanvas = document.createElement("canvas");
+recordingCanvas.width = 320;
+recordingCanvas.height = 320;
+const recordingCtx = recordingCanvas.getContext("2d");
+let recordingFrames = [];
+let recordingFrameCount = 0;
+let captureEvery = 5;
+const MAX_RECORDING_FRAMES = 36;
+
+const fScale = document.getElementById("fScale");
+const sScale = document.getElementById("sScale");
+for (const el of [fScale, sScale]) el.addEventListener("input", () => { updateLabels(); recomputeOdom(); updateReadout(); draw(); sendValue(); });
+
+function updateLabels() {
+  document.getElementById("fVal").textContent = (+fScale.value).toFixed(4);
+  document.getElementById("sVal").textContent = (+sScale.value).toFixed(4);
+}
+
+function world(p) { return [ORIGIN.x + p.x * PX, ORIGIN.y - p.y * PX]; }
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+function resetAll({ emit = true } = {}) {
+  runToken += 1;
+  running = false;
+  truePose = { x: 0, y: 0 };
+  odomPose = { x: 0, y: 0 };
+  truePath = [[0, 0]];
+  odomPath = [[0, 0]];
+  measuredDeltas = [];
+  targets = [];
+  lastResult = { passed: false, maxError: 999, finalError: 999, params: currentParams() };
+  recordingFrames = [];
+  recordingFrameCount = 0;
+  captureEvery = 5;
+  document.getElementById("statusText").textContent = "not run";
+  document.getElementById("targetText").textContent = "Use commands to calibrate, then run test.";
+  document.getElementById("statusBox").className = "meter wide status";
+  if (emit) sendValue();
+  draw();
+  updateReadout();
+}
+
+function currentParams() {
+  return { forwardInPerTick: +fScale.value, strafeInPerTick: +sScale.value };
+}
+
+function applyMove(dx, dy) {
+  const trueDx = dx * TRUE_STRAFE_SCALE;
+  const trueDy = dy * TRUE_FORWARD_SCALE;
+  truePose.x += trueDx;
+  truePose.y += trueDy;
+
+  measuredDeltas.push({ forward: trueDy, strafe: trueDx });
+  truePath.push([truePose.x, truePose.y]);
+  recomputeOdom();
+}
+
+function recomputeOdom() {
+  odomPose = { x: 0, y: 0 };
+  odomPath = [[0, 0]];
+  for (const d of measuredDeltas) {
+    odomPose.x += (d.strafe / BASE_IN_PER_TICK) * (+sScale.value);
+    odomPose.y += (d.forward / BASE_IN_PER_TICK) * (+fScale.value);
+    odomPath.push([odomPose.x, odomPose.y]);
+  }
+}
+
+function segment(dx, dy, steps = 36) {
+  for (let i = 0; i < steps; i++) applyMove(dx / steps, dy / steps);
+}
+
+async function animateMoves(moves, testMode) {
+  if (running) return;
+  const token = runToken;
+  running = true;
+  targets = [];
+  let maxError = 0;
+  for (const [dx, dy, label] of moves) {
+    if (token !== runToken) return;
+    const target = { x: truePose.x + dx * TRUE_STRAFE_SCALE, y: truePose.y + dy * TRUE_FORWARD_SCALE };
+    targets.push([target.x, target.y]);
+    document.getElementById("targetText").textContent = label + " (ramping speed)";
+    const steps = Math.round((testMode ? 120 : 150) / Math.sqrt(ACCEL_MULT));
+    let lastFrac = 0;
+    for (let i = 1; i <= steps; i++) {
+      const u = i / steps;
+      const frac = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+      const dFrac = frac - lastFrac;
+      lastFrac = frac;
+      applyMove(dx * dFrac, dy * dFrac);
+      maxError = Math.max(maxError, dist(truePose, odomPose));
+      updateReadout();
+      draw();
+      if (testMode && recordingFrameCount % captureEvery === 0) captureRecordingFrame();
+      recordingFrameCount += 1;
+      await new Promise(r => setTimeout(r, testMode ? 18 : 22));
+      if (token !== runToken) return;
+    }
+  }
+  if (token !== runToken) return;
+  running = false;
+  const finalError = dist(truePose, odomPose);
+  maxError = Math.max(maxError, finalError);
+  if (testMode) {
+    const passed = maxError < PASS_IN;
+    captureRecordingFrame();
+    lastResult = {
+      passed,
+      maxError,
+      finalError,
+      params: currentParams(),
+      recording_frames: recordingFrames,
+      recording_frame_duration_ms: Math.round(18 * captureEvery),
+    };
+    document.getElementById("statusText").textContent = passed ? "passed" : "retry";
+    document.getElementById("statusText").style.color = passed ? "#079455" : "#d92d20";
+    document.getElementById("targetText").textContent = passed ? "Pass: max error under 3 inches." : "Tune pods and rerun. Max error must be under 3 inches.";
+    document.getElementById("statusBox").className = "meter wide status " + (passed ? "pass" : "fail");
+    sendValue();
+  }
+  updateReadout();
+  draw();
+}
+
+function runLoop(kind) {
+  resetAll({ emit: false });
+  if (kind === "forward") animateMoves([[0, 60, "Forward 5 ft"], [0, -60, "Back 5 ft"], [0, 60, "Forward 5 ft"], [0, -60, "Back 5 ft"]], false);
+  if (kind === "strafe") animateMoves([[60, 0, "Strafe right 5 ft"], [-60, 0, "Strafe left 5 ft"], [60, 0, "Strafe right 5 ft"], [-60, 0, "Strafe left 5 ft"]], false);
+}
+
+function runTest() {
+  resetAll({ emit: false });
+  animateMoves([
+    [48, 0, "Test 1: strafe right 4 ft"],
+    [0, 36, "Test 2: drive forward 3 ft"],
+    [-24, 0, "Test 3: strafe left 2 ft"],
+    [0, 30, "Test 4: drive forward 2.5 ft"],
+    [36, 0, "Test 5: strafe right 3 ft"],
+    [0, -42, "Test 6: drive back 3.5 ft"],
+  ], true);
+}
+
+function captureRecordingFrame() {
+  if (!recordingCtx) return;
+  if (recordingFrames.length >= MAX_RECORDING_FRAMES) {
+    recordingFrames = recordingFrames.filter((_, index) => index % 2 === 0);
+    captureEvery *= 2;
+  }
+  recordingCtx.drawImage(cv, 0, 0, recordingCanvas.width, recordingCanvas.height);
+  recordingFrames.push(recordingCanvas.toDataURL("image/jpeg", 0.60));
+}
+
+function sendValue() {
+  sendMessage("streamlit:setComponentValue", { value: lastResult, dataType: "json" });
+}
+
+function updateReadout() {
+  const e = dist(truePose, odomPose);
+  document.getElementById("truePose").textContent = `${truePose.x.toFixed(1)}, ${truePose.y.toFixed(1)}`;
+  document.getElementById("odomPose").textContent = `${odomPose.x.toFixed(1)}, ${odomPose.y.toFixed(1)}`;
+  document.getElementById("curErr").textContent = `${e.toFixed(1)} in`;
+  document.getElementById("hud-final").textContent = lastResult.finalError < 999 ? `${lastResult.finalError.toFixed(1)} in` : `${e.toFixed(1)} in`;
+  document.getElementById("hud-max").textContent = lastResult.maxError < 999 ? `${lastResult.maxError.toFixed(1)} in` : "--";
+}
+
+function drawGrid() {
+  ctx.fillStyle = "#111827";
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1;
+  for (let x = ORIGIN.x % (12 * PX); x < cv.width; x += 12 * PX) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cv.height); ctx.stroke(); }
+  for (let y = ORIGIN.y % (12 * PX); y < cv.height; y += 12 * PX) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cv.width, y); ctx.stroke(); }
+  ctx.strokeStyle = "rgba(255,255,255,0.25)";
+  ctx.beginPath(); ctx.moveTo(0, ORIGIN.y); ctx.lineTo(cv.width, ORIGIN.y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ORIGIN.x, 0); ctx.lineTo(ORIGIN.x, cv.height); ctx.stroke();
+}
+
+function drawPolyline(path, color, width, dash) {
+  if (path.length < 2) return;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.setLineDash(dash || []);
+  ctx.beginPath();
+  const p0 = world({ x: path[0][0], y: path[0][1] });
+  ctx.moveTo(p0[0], p0[1]);
+  for (let i = 1; i < path.length; i++) {
+    const p = world({ x: path[i][0], y: path[i][1] });
+    ctx.lineTo(p[0], p[1]);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawRobot(pose, color, alpha) {
+  const [x, y] = world(pose);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, y);
+  ctx.fillStyle = color;
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-14, -14, 28, 28, 5);
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.8)";
+  ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(12, 0); ctx.moveTo(0, -12); ctx.lineTo(0, 12); ctx.stroke();
+  ctx.restore();
+}
+
+function drawTargets() {
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,255,255,0.7)";
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 5]);
+  for (const t of targets) {
+    const [x, y] = world({ x: t[0], y: t[1] });
+    ctx.beginPath();
+    ctx.arc(x, y, 9, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function draw() {
+  drawGrid();
+  drawTargets();
+  drawPolyline(truePath, "#2563eb", 3, []);
+  drawPolyline(odomPath, "#d97706", 3, [7, 5]);
+  drawRobot(odomPose, "#d97706", 0.42);
+  drawRobot(truePose, "#2563eb", 1);
+}
+
+updateLabels();
+resetAll();
+</script>
+</body>
+</html>

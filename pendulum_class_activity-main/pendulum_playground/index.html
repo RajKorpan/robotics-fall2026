@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --ink: #182230;
+      --muted: #475467;
+      --line: #d0d5dd;
+      --accent: #2563eb;
+      --bg: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; color: var(--ink); }
+    #root { padding: 4px; }
+    .wrap {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 14px;
+      align-items: stretch;
+    }
+    @media (max-width: 720px) {
+      .wrap { grid-template-columns: 1fr; }
+    }
+    .stage {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #ffffff;
+      padding: 6px;
+      position: relative;
+      user-select: none;
+    }
+    canvas { display: block; width: 100%; height: auto; background: #ffffff; border-radius: 8px; cursor: grab; touch-action: none; outline: none; }
+    canvas:focus { box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.4); }
+    canvas.grabbing { cursor: grabbing; }
+    .hint {
+      font-size: 0.82rem;
+      color: var(--muted);
+      text-align: center;
+      margin: 6px 2px 2px;
+      line-height: 1.35;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--bg);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .panel h3 {
+      margin: 0;
+      font-size: 1.02rem;
+      font-weight: 800;
+    }
+    .panel .sub { font-size: 0.82rem; color: var(--muted); margin-top: -4px; }
+    .obs {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .obs-row {
+      border: 1px solid #e4e7ec;
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: #fcfdff;
+    }
+    .obs-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .obs-name { font-weight: 700; font-size: 0.9rem; }
+    .obs-val {
+      font-variant-numeric: tabular-nums;
+      font-weight: 800;
+      font-size: 1.0rem;
+      color: var(--accent);
+    }
+    .obs-meter {
+      position: relative;
+      height: 8px;
+      border-radius: 999px;
+      background: #eef2f7;
+      margin-top: 7px;
+      overflow: hidden;
+    }
+    .obs-zero {
+      position: absolute;
+      left: 50%;
+      top: -2px;
+      bottom: -2px;
+      width: 1px;
+      background: #cbd5e1;
+    }
+    .obs-fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      background: var(--accent);
+      border-radius: 999px;
+    }
+    .obs-scale {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.68rem;
+      color: #98a2b3;
+      margin-top: 3px;
+      font-variant-numeric: tabular-nums;
+    }
+    .reset {
+      align-self: flex-start;
+      border: 1px solid var(--line);
+      background: #f9fafb;
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .reset:hover { background: #eef2f7; }
+    .note { font-size: 0.78rem; color: var(--muted); line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div class="wrap">
+      <div class="stage">
+        <canvas id="stage" width="600" height="400" tabindex="0"></canvas>
+        <div class="hint">
+          <strong>← →</strong> arrow keys push the cart &nbsp;·&nbsp; <strong>drag the pole</strong> to swing it.
+          Watch every observation update live.
+        </div>
+      </div>
+      <div class="panel">
+        <div>
+          <h3>What the agent observes</h3>
+          <div class="sub">Shown in physical units, just like the CartPole state.</div>
+        </div>
+        <div class="obs" id="obs"></div>
+        <button class="reset" id="reset">Reset pendulum</button>
+        <div class="note">
+          <strong>Watch the signs.</strong> To the <strong>right is positive (+)</strong>
+          and to the <strong>left is negative (&minus;)</strong> for every value &mdash;
+          position, velocity, angle, and spin. Pushing the cart accelerates it and tips
+          the pole, just like in training.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PI = Math.PI;
+
+    function streamlitMessage(type, data) {
+      window.parent.postMessage(
+        Object.assign({ isStreamlitMessage: true, type }, data || {}),
+        "*"
+      );
+    }
+    function ready() {
+      streamlitMessage("streamlit:componentReady", { apiVersion: 1 });
+    }
+    function setHeight() {
+      const root = document.getElementById("root");
+      streamlitMessage("streamlit:setFrameHeight", { height: root.scrollHeight + 6 });
+    }
+
+    // Physical limits used to draw readable meters.
+    const X_LIMIT = 2.4;        // cart position bound (m)
+    const XDOT_LIMIT = 3.0;     // cart velocity bound (m/s)
+    const THETADOT_LIMIT = 3.5; // pole angular velocity bound (rad/s)
+
+    // World state (raw physical units).
+    const state = {
+      x: 0.0,        // cart position (m)
+      xDot: 0.0,     // cart velocity (m/s)
+      theta: 0.0,    // pole angle (rad), 0 = straight up
+      thetaDot: 0.0, // pole angular velocity (rad/s)
+    };
+
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    // Wrap an angle to (-pi, pi].
+    function wrapAngle(a) {
+      let r = ((a + PI) % (2 * PI));
+      if (r < 0) r += 2 * PI;
+      return r - PI;
+    }
+
+    // Each observation in raw physical units.
+    function observations() {
+      return [
+        {
+          key: "cart_position",
+          name: "Cart position",
+          value: state.x,
+          unit: "m",
+          limit: X_LIMIT,
+          minLabel: "-2.4 m",
+          maxLabel: "2.4 m",
+        },
+        {
+          key: "cart_velocity",
+          name: "Cart velocity",
+          value: state.xDot,
+          unit: "m/s",
+          limit: XDOT_LIMIT,
+          minLabel: "-3.0 m/s",
+          maxLabel: "3.0 m/s",
+        },
+        {
+          key: "pole_angle",
+          name: "Pole angle",
+          value: wrapAngle(state.theta),
+          unit: "rad",
+          limit: PI,
+          minLabel: "-π rad",
+          maxLabel: "π rad",
+        },
+        {
+          key: "pole_angular_velocity",
+          name: "Pole angular velocity",
+          value: state.thetaDot,
+          unit: "rad/s",
+          limit: THETADOT_LIMIT,
+          minLabel: "-3.5 rad/s",
+          maxLabel: "3.5 rad/s",
+        },
+      ];
+    }
+
+    const canvas = document.getElementById("stage");
+    const ctx = canvas.getContext("2d");
+
+    // Pixel geometry. Uses Gymnasium CartPole-v1 proportions/colors, but the
+    // scene is centered vertically so the rail and pivot sit in the middle.
+    const W = canvas.width, H = canvas.height;          // 600 x 400
+    const X_THRESHOLD = 2.4;                             // gym x_threshold
+    const WORLD_WIDTH = X_THRESHOLD * 2;                 // 4.8
+    const SCALE = W / WORLD_WIDTH;                       // px per meter (125)
+    const CART_W = 50, CART_H = 30;                      // gym cartwidth/height
+    const POLE_W = 10;                                   // gym polewidth
+    const POLE_LEN_PX = SCALE * (2 * 0.5);              // gym: scale * 2 * length
+    // Rail/cart centered vertically, with room above for the pole to stand up.
+    const TRACK_Y = Math.round(H * 0.62);
+    const CART_Y = TRACK_Y;                              // cart centered on the rail
+
+    // Gym colors.
+    const COLOR_CART = "rgb(0,0,0)";
+    const COLOR_POLE = "rgb(202,152,101)";
+    const COLOR_AXLE = "rgb(129,132,203)";
+    const COLOR_TRACK = "rgb(0,0,0)";
+
+    function cartPx() { return state.x * SCALE + W / 2; }
+
+    function pivot() {
+      // Pivot at the center of the cart, like the real cart-pole joint.
+      return { x: cartPx(), y: CART_Y };
+    }
+
+    function poleTip() {
+      const p = pivot();
+      // theta = 0 points straight up; positive theta tips to the right.
+      return {
+        baseX: p.x, baseY: p.y,
+        tipX: p.x + POLE_LEN_PX * Math.sin(state.theta),
+        tipY: p.y - POLE_LEN_PX * Math.cos(state.theta),
+      };
+    }
+
+    function draw() {
+      // White background, like the gym surface.
+      ctx.fillStyle = "rgb(255,255,255)";
+      ctx.fillRect(0, 0, W, H);
+
+      const cx = cartPx();
+
+      // Black rail along the bottom of the cart.
+      const railY = CART_Y + CART_H / 2;
+      ctx.strokeStyle = COLOR_TRACK;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, railY + 0.5);
+      ctx.lineTo(W, railY + 0.5);
+      ctx.stroke();
+
+      // Black cart rectangle centered on (cartx, CART_Y).
+      ctx.fillStyle = COLOR_CART;
+      ctx.fillRect(cx - CART_W / 2, CART_Y - CART_H / 2, CART_W, CART_H);
+
+      // Tan pole as a rotated rounded rectangle (gym pole polygon).
+      const p = poleTip();
+      ctx.fillStyle = COLOR_POLE;
+      ctx.strokeStyle = COLOR_POLE;
+      ctx.lineWidth = POLE_W;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(p.baseX, p.baseY);
+      ctx.lineTo(p.tipX, p.tipY);
+      ctx.stroke();
+
+      // Purple axle circle at the pivot (gym filled_circle).
+      ctx.fillStyle = COLOR_AXLE;
+      circle(ctx, p.baseX, p.baseY, POLE_W / 2);
+    }
+
+    function circle(c, x, y, r) { c.beginPath(); c.arc(x, y, r, 0, 2 * PI); c.fill(); }
+
+    function fmt(v) {
+      const s = v >= 0 ? "+" : "−";
+      return s + Math.abs(v).toFixed(2);
+    }
+
+    function renderObs() {
+      const obs = observations();
+      const container = document.getElementById("obs");
+      container.innerHTML = obs.map((o) => {
+        const frac = clamp(o.value / o.limit, -1, 1); // -1..1
+        const half = 50; // percent
+        const widthPct = Math.abs(frac) * half;
+        const leftPct = frac >= 0 ? half : half - widthPct;
+        return `
+          <div class="obs-row">
+            <div class="obs-top">
+              <span class="obs-name">${o.name}</span>
+              <span class="obs-val">${fmt(o.value)} ${o.unit}</span>
+            </div>
+            <div class="obs-meter">
+              <div class="obs-zero"></div>
+              <div class="obs-fill" style="left:${leftPct}%; width:${widthPct}%;"></div>
+            </div>
+            <div class="obs-scale"><span>${o.minLabel}</span><span>0</span><span>${o.maxLabel}</span></div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function frame() {
+      draw();
+      renderObs();
+    }
+
+    // ---- Interaction --------------------------------------------------------
+    let dragMode = null; // "cart" | "pole" | null
+    let lastTheta = 0, lastT = 0;
+
+    function canvasPoint(evt) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const src = evt.touches ? evt.touches[0] : evt;
+      return {
+        x: (src.clientX - rect.left) * scaleX,
+        y: (src.clientY - rect.top) * scaleY,
+      };
+    }
+
+    function hitTest(pt) {
+      // Only the pole is draggable; the cart is driven by the arrow keys.
+      const p = poleTip();
+      const dx = p.tipX - p.baseX, dy = p.tipY - p.baseY;
+      const len2 = Math.max(1e-6, dx * dx + dy * dy);
+      let t = ((pt.x - p.baseX) * dx + (pt.y - p.baseY) * dy) / len2;
+      t = clamp(t, 0, 1);
+      const projX = p.baseX + t * dx, projY = p.baseY + t * dy;
+      const poleDist = Math.hypot(pt.x - projX, pt.y - projY);
+      if (poleDist <= POLE_W + 14) return "pole";
+      return null;
+    }
+
+    function startDrag(evt) {
+      const pt = canvasPoint(evt);
+      dragMode = hitTest(pt);
+      if (!dragMode) return;
+      evt.preventDefault();
+      canvas.classList.add("grabbing");
+      lastT = performance.now();
+      lastTheta = state.theta;
+    }
+
+    function moveDrag(evt) {
+      if (dragMode !== "pole") return;
+      evt.preventDefault();
+      const pt = canvasPoint(evt);
+      const now = performance.now();
+      const dt = Math.max(0.016, (now - lastT) / 1000);
+
+      const p = pivot();
+      // angle from vertical: atan2(dx, -dy) so up = 0, right = +
+      const newTheta = Math.atan2(pt.x - p.x, -(pt.y - p.y));
+      const dTheta = wrapAngle(newTheta - lastTheta);
+      state.thetaDot = clamp(dTheta / dt, -THETADOT_LIMIT, THETADOT_LIMIT);
+      state.theta = newTheta;
+      lastTheta = newTheta;
+      lastT = now;
+      frame();
+    }
+
+    function endDrag() {
+      if (!dragMode) return;
+      dragMode = null;
+      canvas.classList.remove("grabbing");
+      // Keep the velocity imparted by the drag so momentum carries the cart /
+      // pole after release; gravity and friction take over from here.
+      frame();
+    }
+
+    canvas.addEventListener("mousedown", startDrag);
+    window.addEventListener("mousemove", moveDrag);
+    window.addEventListener("mouseup", endDrag);
+    canvas.addEventListener("touchstart", startDrag, { passive: false });
+    window.addEventListener("touchmove", moveDrag, { passive: false });
+    window.addEventListener("touchend", endDrag);
+
+    document.getElementById("reset").addEventListener("click", () => {
+      state.x = 0; state.xDot = 0; state.theta = 0; state.thetaDot = 0;
+      cartPush = 0; pressLeft = false; pressRight = false;
+      frame();
+    });
+
+    // Arrow keys push the cart left/right (like the agent's force action).
+    let pressLeft = false, pressRight = false;
+    function refreshPush() { cartPush = (pressRight ? 1 : 0) - (pressLeft ? 1 : 0); }
+    function onKeyDown(e) {
+      if (e.key === "ArrowLeft") { pressLeft = true; e.preventDefault(); }
+      else if (e.key === "ArrowRight") { pressRight = true; e.preventDefault(); }
+      else return;
+      refreshPush();
+    }
+    function onKeyUp(e) {
+      if (e.key === "ArrowLeft") pressLeft = false;
+      else if (e.key === "ArrowRight") pressRight = false;
+      else return;
+      refreshPush();
+    }
+    // Focus the canvas on hover/click so the arrow keys reach it.
+    canvas.addEventListener("pointerenter", () => canvas.focus());
+    canvas.addEventListener("pointerdown", () => canvas.focus());
+    canvas.addEventListener("keydown", onKeyDown);
+    canvas.addEventListener("keyup", onKeyUp);
+    // Release the keys if focus leaves so the cart does not keep coasting.
+    canvas.addEventListener("blur", () => { pressLeft = false; pressRight = false; refreshPush(); });
+
+    // ---- Physics ------------------------------------------------------------
+    // Gymnasium CartPole-v1 dynamics (theta = 0 is straight up, an unstable
+    // equilibrium). No motor force here so the pole swings freely; light
+    // damping/friction let it settle. Integrated with the same tau and
+    // semi-implicit Euler as the real environment, substepped to real time so
+    // the motion looks and feels exactly like the simulator.
+    const GRAVITY = 9.8;
+    const MASS_CART = 1.0;
+    const MASS_POLE = 0.1;
+    const TOTAL_MASS = MASS_CART + MASS_POLE;
+    const LENGTH = 0.5;                  // half the pole length
+    const POLEMASS_LENGTH = MASS_POLE * LENGTH;
+    const TAU = 0.02;                    // gym timestep (s)
+    const POLE_DAMPING = 0.02;           // gentle angular friction (per tick)
+    const CART_FRICTION = 0.01;          // gentle linear friction (per tick)
+    const WALL_BOUNCE = 0.5;             // velocity retained at a track limit
+    const FORCE_MAG = 10.0;              // gym force_mag, applied via arrow keys
+
+    // Arrow-key push on the cart: -1 (left), 0 (none), +1 (right).
+    let cartPush = 0;
+
+    function gymTick() {
+      const force = cartPush * FORCE_MAG; // arrow keys drive the cart, like the agent
+      const ct = Math.cos(state.theta);
+      const st = Math.sin(state.theta);
+      const temp = (force + POLEMASS_LENGTH * state.thetaDot * state.thetaDot * st) / TOTAL_MASS;
+      const thetaacc = (GRAVITY * st - ct * temp) /
+        (LENGTH * (4.0 / 3.0 - (MASS_POLE * ct * ct) / TOTAL_MASS));
+      const xacc = temp - POLEMASS_LENGTH * thetaacc * ct / TOTAL_MASS;
+
+      // Semi-implicit Euler (gym default).
+      if (dragMode !== "cart") {
+        state.xDot += TAU * xacc;
+        state.xDot *= (1 - CART_FRICTION);
+        state.x += TAU * state.xDot;
+        if (state.x > X_LIMIT) { state.x = X_LIMIT; state.xDot = -Math.abs(state.xDot) * WALL_BOUNCE; }
+        if (state.x < -X_LIMIT) { state.x = -X_LIMIT; state.xDot = Math.abs(state.xDot) * WALL_BOUNCE; }
+      }
+      if (dragMode !== "pole") {
+        state.thetaDot += TAU * thetaacc;
+        state.thetaDot *= (1 - POLE_DAMPING);
+        state.theta = wrapAngle(state.theta + TAU * state.thetaDot);
+      }
+    }
+
+    let physicsAccumulator = 0;
+    function physicsStep(dt) {
+      // Run fixed-size gym ticks to match the simulator's real-time speed.
+      physicsAccumulator += dt;
+      let steps = 0;
+      while (physicsAccumulator >= TAU && steps < 8) {
+        gymTick();
+        physicsAccumulator -= TAU;
+        steps += 1;
+      }
+      if (steps === 8) physicsAccumulator = 0; // avoid spiral after a stall
+    }
+
+    let lastTick = performance.now();
+    function loop(now) {
+      const dt = Math.min(0.05, Math.max(0.001, (now - lastTick) / 1000));
+      lastTick = now;
+      physicsStep(dt);
+      frame();
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener("message", (event) => {
+      const data = event.data || {};
+      if (data.type !== "streamlit:render") return;
+      setHeight();
+    });
+
+    frame();
+    setHeight();
+    ready();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<div class="layout">
+  <div class="card canvas-card">
+    <canvas id="route-canvas" width="620" height="430" aria-label="Sidewalk route planner"></canvas>
+  </div>
+
+  <div class="side">
+    <section class="card">
+      <h3>1 · Draw a route</h3>
+      <p class="hint">
+        Press and drag to sketch one smooth route from <strong>START</strong>. Visit
+        <strong>WP1–WP4 in order</strong> and keep the cyan curve outside each
+        pedestrian's pink safety zone. You can lift your pointer and continue drawing.
+      </p>
+      <div class="button-row">
+        <button class="button" id="undo-route" type="button">Undo stroke</button>
+        <button class="button" id="clear-route" type="button">Clear route</button>
+      </div>
+      <div class="plan-status idle" id="plan-status">Add a point to begin.</div>
+    </section>
+
+    <section class="card">
+      <h3>2 · Tune tracking</h3>
+      <div class="slider-row">
+        <label for="heading-kp">Heading Kp <span id="heading-kp-value">0.3</span></label>
+        <input type="range" id="heading-kp" min="0" max="8" step="0.1" value="0.3">
+      </div>
+      <div class="slider-row">
+        <label for="heading-ki">Heading Ki <span id="heading-ki-value">1.00</span></label>
+        <input type="range" id="heading-ki" min="0" max="2" step="0.05" value="1">
+      </div>
+      <div class="slider-row">
+        <label for="heading-kd">Heading Kd <span id="heading-kd-value">0.00</span></label>
+        <input type="range" id="heading-kd" min="0" max="3" step="0.05" value="0">
+      </div>
+      <div class="slider-row">
+        <label for="forward-speed">Forward speed <span id="forward-speed-value">0.48 m/s</span></label>
+        <input type="range" id="forward-speed" min="0.18" max="0.50" step="0.02" value="0.48">
+      </div>
+      <div class="slider-row">
+        <label for="wheel-radius">Wheel radius estimate <span id="wheel-radius-value">54.0 mm</span></label>
+        <input type="range" id="wheel-radius" min="44" max="56" step="0.5" value="54">
+      </div>
+      <p class="hint">These starting values are intentionally untuned. Use orange-versus-green path divergence to calibrate odometry, then improve the controller.</p>
+    </section>
+
+    <section class="card">
+      <button class="button primary" id="drive-route" type="button">Drive the route</button>
+      <div class="metrics">
+        <div class="metric"><span id="mean-track">-- m</span><small>mean path error</small></div>
+        <div class="metric"><span id="max-track">-- m</span><small>max path error</small></div>
+        <div class="metric"><span id="ped-gap">-- m</span><small>closest to person</small></div>
+        <div class="metric"><span id="waypoints-reached">0 / 4</span><small>waypoints reached</small></div>
+      </div>
+      <div class="verdict idle" id="verdict">Plan a complete route before driving.</div>
+    </section>
+  </div>
+</div>

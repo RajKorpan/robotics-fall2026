@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>How an Encoder Counts Ticks</title>
+<style>
+  :root {
+    --bg: #f2f4f7;
+    --ink: #182230;
+    --muted: #475467;
+    --accent: #2563eb;
+    --orange: #f79009;
+    --green: #12b76a;
+    --purple: #7c3aed;
+    --card: #ffffff;
+    --border: #d0d5dd;
+    --canvas-bg: #0f172a;
+  }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
+  .wrap { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+  .header { padding: 8px 14px; }
+  .header h1 { margin: 0; font-size: 18px; font-weight: 650; color: var(--ink); }
+  .header p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+  canvas { display: block; width: 100%; height: 380px; border-radius: 12px;
+    background: var(--canvas-bg); border: 1px solid var(--border); }
+  .controls { display: flex; align-items: center; gap: 12px; padding: 6px 12px;
+    height: 40px; box-sizing: border-box; }
+  .controls button { font: inherit; font-size: 13px; padding: 6px 14px;
+    border-radius: 6px; border: 1px solid var(--border); background: #fff;
+    color: var(--ink); cursor: pointer; }
+  .controls button:hover { background: #f2f4f7; }
+  .controls button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .controls label { font-size: 12px; color: var(--muted);
+    display: flex; align-items: center; gap: 6px; }
+  .controls input[type=range] { width: 120px; accent-color: var(--accent); }
+  .controls .val { font-family: ui-monospace, "Consolas", monospace;
+    font-variant-numeric: tabular-nums; font-size: 12px;
+    color: var(--ink); min-width: 46px; }
+  .explain { padding: 10px 14px; font-size: 12.5px; color: var(--muted);
+    line-height: 1.5; }
+  .explain b { color: var(--ink); }
+  .explain div { margin: 2px 0; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="card header">
+    <h1>How an Encoder Counts Ticks</h1>
+    <p>A slotted disk plus a light sensor equals a tick-counting wheel.</p>
+  </div>
+  <canvas id="c" width="1000" height="380"></canvas>
+  <div class="card controls">
+    <button id="playBtn" class="active">Pause</button>
+    <button id="resetBtn">Reset</button>
+    <label>Speed <input type="range" id="speed" min="0.25" max="2" step="0.05" value="1">
+      <span class="val" id="speedVal">1.00x</span></label>
+  </div>
+  <div class="card explain">
+    <div><b>Slots</b> &mdash; the disk has a fixed number of slots (here, 20). Each slot the sensor sees = one <b>tick</b>.</div>
+    <div><b>Ticks per rotation</b> &mdash; count how many ticks in one full rotation to know your resolution.</div>
+    <div><b>More slots = finer measurement.</b> More ticks per rotation = you can detect smaller angle changes.</div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.floor(rect.width * DPR);
+    canvas.height = Math.floor(rect.height * DPR);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const SLOTS = 20;
+  let angle = 0;
+  let ticks = 0;
+  let lastSlotIndex = null;
+  let flashUntil = 0;
+  let tickTextUntil = 0;
+  let tickPopUntil = 0;
+  // History of recent tick timestamps (ms) for the scrolling history bar
+  let tickHistory = [];
+  const HISTORY_WINDOW_MS = 6000; // fade over 6 seconds
+  const HISTORY_MAX = 30;
+
+  const playBtn = document.getElementById('playBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const speedSlider = document.getElementById('speed');
+  const speedVal = document.getElementById('speedVal');
+
+  let playing = true;
+  let speed = 1;
+
+  playBtn.addEventListener('click', () => {
+    playing = !playing;
+    playBtn.textContent = playing ? 'Pause' : 'Play';
+    playBtn.classList.toggle('active', playing);
+    if (playing) lastFrame = performance.now();
+  });
+  resetBtn.addEventListener('click', () => {
+    angle = 0; ticks = 0; lastSlotIndex = null;
+    flashUntil = 0; tickTextUntil = 0; tickPopUntil = 0;
+    tickHistory = [];
+  });
+  speedSlider.addEventListener('input', e => {
+    speed = parseFloat(e.target.value);
+    speedVal.textContent = speed.toFixed(2) + 'x';
+  });
+
+  const BASE_OMEGA = 30 * Math.PI / 180; // 30 deg/s at 1x
+
+  let lastFrame = performance.now();
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  // High-contrast label renderer: dark rounded-rect background, bright text, optional glow.
+  function drawLabel(text, x, y, opts) {
+    opts = opts || {};
+    const font = opts.font || 'bold 15px "Segoe UI", system-ui, sans-serif';
+    const color = opts.color || '#ffffff';
+    const align = opts.align || 'center';
+    const pad = 6;
+    const bgAlpha = opts.bgAlpha != null ? opts.bgAlpha : 0.9;
+    const glow = opts.glow || 0;
+    ctx.font = font;
+    ctx.textAlign = align;
+    ctx.textBaseline = 'middle';
+    const w = ctx.measureText(text).width;
+    // pull font size from font string (assumes "... NNpx ...")
+    const m = /([0-9]+)px/.exec(font);
+    const fs = m ? parseInt(m[1], 10) : 14;
+    const h = fs + 4;
+    let bx = x;
+    if (align === 'center') bx = x - w / 2;
+    else if (align === 'right') bx = x - w;
+    ctx.fillStyle = 'rgba(15,23,42,' + bgAlpha + ')';
+    roundRect(bx - pad, y - h / 2 - pad, w + pad * 2, h + pad * 2, 6);
+    ctx.fill();
+    if (glow > 0) {
+      ctx.save();
+      ctx.shadowColor = opts.glowColor || color;
+      ctx.shadowBlur = glow;
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, y);
+      ctx.restore();
+    }
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
+  }
+
+  function drawGrid(w, h) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    const step = 30;
+    for (let x = 0; x < w; x += step) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+    for (let y = 0; y < h; y += step) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+  }
+
+  function drawDisk(cx, cy, r, angle) {
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // shadow
+    ctx.beginPath();
+    ctx.arc(0, 0, r + 6, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fill();
+
+    ctx.rotate(angle);
+
+    // Disk body
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#1f2937';
+    ctx.fill();
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Slots as narrow wedges
+    const slotWidthRad = (Math.PI * 2 / SLOTS) * 0.35;
+    const slotInner = r - 22;
+    const slotOuter = r + 2;
+    for (let i = 0; i < SLOTS; i++) {
+      const a = (i / SLOTS) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a - slotWidthRad / 2) * slotInner,
+                 Math.sin(a - slotWidthRad / 2) * slotInner);
+      ctx.lineTo(Math.cos(a - slotWidthRad / 2) * slotOuter,
+                 Math.sin(a - slotWidthRad / 2) * slotOuter);
+      ctx.lineTo(Math.cos(a + slotWidthRad / 2) * slotOuter,
+                 Math.sin(a + slotWidthRad / 2) * slotOuter);
+      ctx.lineTo(Math.cos(a + slotWidthRad / 2) * slotInner,
+                 Math.sin(a + slotWidthRad / 2) * slotInner);
+      ctx.closePath();
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fill();
+    }
+
+    // Inner hub
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.28, 0, Math.PI * 2);
+    ctx.fillStyle = '#0f172a';
+    ctx.fill();
+    ctx.strokeStyle = '#475467';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Center dot
+    ctx.beginPath();
+    ctx.arc(0, 0, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#94a3b8';
+    ctx.fill();
+
+    // 12 o'clock reference mark
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 0.28);
+    ctx.lineTo(0, -r + 26);
+    ctx.strokeStyle = '#f79009';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    ctx.restore();
+
+    drawLabel('20 slots per rotation', cx, cy + r + 28,
+      { color: '#ffffff', font: 'bold 15px "Segoe UI", system-ui, sans-serif' });
+  }
+
+  function drawSensor(cx, cy, r, now) {
+    const sy = cy - r;
+    const sx = cx;
+    const flashActive = now < flashUntil;
+    const flashT = flashActive ? (flashUntil - now) / 120 : 0;
+
+    if (flashActive) {
+      const g = ctx.createRadialGradient(sx, sy, 2, sx, sy, 70);
+      g.addColorStop(0, 'rgba(247,144,9,' + (0.75 * flashT) + ')');
+      g.addColorStop(1, 'rgba(247,144,9,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 70, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Bracket
+    ctx.strokeStyle = '#f79009';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(sx - 14, sy - 18);
+    ctx.lineTo(sx - 14, sy + 18);
+    ctx.moveTo(sx + 14, sy - 18);
+    ctx.lineTo(sx + 14, sy + 18);
+    ctx.moveTo(sx - 14, sy - 18);
+    ctx.lineTo(sx + 14, sy - 18);
+    ctx.stroke();
+
+    // LED
+    ctx.beginPath();
+    ctx.arc(sx, sy - 12, 4, 0, Math.PI * 2);
+    ctx.fillStyle = flashActive ? '#fef3c7' : '#7c3aed';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Phototransistor
+    ctx.beginPath();
+    ctx.arc(sx, sy + 12, 4, 0, Math.PI * 2);
+    ctx.fillStyle = flashActive ? '#fde68a' : '#334155';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+
+    if (flashActive) {
+      ctx.strokeStyle = 'rgba(247,144,9,' + (0.9 * flashT) + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy - 8);
+      ctx.lineTo(sx, sy + 8);
+      ctx.stroke();
+    }
+
+    drawLabel('Optical sensor', sx + 76, sy - 4,
+      { color: '#fdba74', font: 'bold 14px "Segoe UI", system-ui, sans-serif', align: 'left' });
+
+    if (now < tickTextUntil) {
+      const t = (tickTextUntil - now) / 200;
+      const y = sy - 52 - (1 - t) * 20;
+      ctx.globalAlpha = t;
+      drawLabel('Tick!', sx, y,
+        { color: '#fdba74',
+          font: 'bold 24px "Segoe UI", system-ui, sans-serif',
+          glow: 18, glowColor: '#f79009' });
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawRightPanel(x0, y0, w, h, now) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0 + 20);
+    ctx.lineTo(x0, y0 + h - 20);
+    ctx.stroke();
+
+    const pad = 24;
+    const cx = x0 + pad;
+    const innerW = w - pad * 2;
+
+    // --- Huge tick counter ---
+    const popActive = now < tickPopUntil;
+    const popT = popActive ? (tickPopUntil - now) / 100 : 0;
+    const scale = 1 + 0.18 * popT;
+
+    ctx.save();
+    ctx.translate(cx, y0 + 56);
+    ctx.scale(scale, scale);
+    ctx.font = 'bold 44px ui-monospace, Consolas, monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(255,255,255,0.55)';
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = '#ffffff';
+    const tickText = 'Ticks: ' + ticks;
+    ctx.fillText(tickText, 0, 0);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+    // --- Rotations counter ---
+    const rotations = ticks / SLOTS;
+    ctx.font = 'bold 20px ui-monospace, Consolas, monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('Rotations:', cx, y0 + 108);
+    ctx.fillStyle = '#a7f3d0';
+    ctx.fillText(rotations.toFixed(2), cx + 120, y0 + 108);
+
+    // Small formula reminder
+    drawLabel('rotations = ticks / 20', cx + innerW / 2, y0 + 138,
+      { color: '#e5e7eb', font: 'bold 13px ui-monospace, Consolas, monospace',
+        bgAlpha: 0.9 });
+
+    // --- Tick history bar ---
+    const barY = y0 + 178;
+    const barX = cx;
+    const barW = innerW;
+    const barH = 46;
+
+    // Section title
+    drawLabel('Tick history (last 30)', barX + barW / 2, barY - 14,
+      { color: '#ffffff', font: 'bold 14px "Segoe UI", system-ui, sans-serif',
+        bgAlpha: 0.9 });
+
+    // Track background
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    roundRect(barX, barY, barW, barH, 8);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    roundRect(barX, barY, barW, barH, 8);
+    ctx.stroke();
+
+    // Draw dots for recent ticks. Newest on the right, oldest on the left.
+    const dotCount = Math.min(tickHistory.length, HISTORY_MAX);
+    const slotW = barW / HISTORY_MAX;
+    for (let i = 0; i < dotCount; i++) {
+      // tickHistory[tickHistory.length - 1] is most recent -> rightmost
+      const t = tickHistory[tickHistory.length - 1 - i];
+      const age = now - t;
+      const fade = Math.max(0, 1 - age / HISTORY_WINDOW_MS);
+      const px = barX + barW - slotW / 2 - i * slotW;
+      const py = barY + barH / 2;
+      // Fresh tick flashes brighter and larger
+      const freshT = age < 250 ? (1 - age / 250) : 0;
+      const rBase = 6;
+      const rr = rBase + freshT * 5;
+      // Glow for fresh ticks
+      if (freshT > 0) {
+        const g = ctx.createRadialGradient(px, py, 0, px, py, 22);
+        g.addColorStop(0, 'rgba(247,144,9,' + (0.55 * freshT) + ')');
+        g.addColorStop(1, 'rgba(247,144,9,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(px, py, 22, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(247,144,9,' + (0.35 + 0.65 * fade) + ')';
+      ctx.beginPath(); ctx.arc(px, py, rr, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,' + (0.25 * fade) + ')';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Direction hint
+    ctx.fillStyle = '#64748b';
+    ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('older', barX + 4, barY + barH + 14);
+    ctx.textAlign = 'right';
+    ctx.fillText('newest', barX + barW - 4, barY + barH + 14);
+
+    // --- Big prominent note at bottom ---
+    const noteY = y0 + h - 32;
+    drawLabel('Every slot the sensor sees = 1 tick.',
+      x0 + w / 2, noteY,
+      { color: '#ffffff',
+        font: 'bold 16px "Segoe UI", system-ui, sans-serif',
+        bgAlpha: 0.95,
+        glow: 8, glowColor: 'rgba(247,144,9,0.6)' });
+  }
+
+  function frame(now) {
+    const dt = Math.min(0.05, (now - lastFrame) / 1000);
+    lastFrame = now;
+
+    if (playing) {
+      angle += BASE_OMEGA * speed * dt;
+      if (angle > Math.PI * 2) angle -= Math.PI * 2;
+    }
+
+    // Slot detection at 12 o'clock (angle = -pi/2)
+    const sensorAngle = -Math.PI / 2;
+    let idealI = ((sensorAngle - angle) / (Math.PI * 2)) * SLOTS;
+    idealI = ((idealI % SLOTS) + SLOTS) % SLOTS;
+    const nearestI = Math.round(idealI) % SLOTS;
+    const d = Math.abs(idealI - nearestI);
+    const wrappedDist = Math.min(d, SLOTS - d);
+
+    if (wrappedDist < 0.15 && playing) {
+      if (lastSlotIndex !== nearestI) {
+        ticks++;
+        flashUntil = now + 120;
+        tickTextUntil = now + 200;
+        tickPopUntil = now + 100;
+        tickHistory.push(now);
+        if (tickHistory.length > HISTORY_MAX) tickHistory.shift();
+        lastSlotIndex = nearestI;
+      }
+    } else if (wrappedDist > 0.3) {
+      lastSlotIndex = null;
+    }
+
+    const W = canvas.width, H = canvas.height;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const w = W / DPR, h = H / DPR;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, w, h);
+    drawGrid(w, h);
+
+    const leftW = w * 0.5;
+    const diskR = 120;
+    const cx = leftW / 2;
+    const cy = h / 2 + 6;
+    drawDisk(cx, cy, diskR, angle);
+    drawSensor(cx, cy, diskR, now);
+
+    drawRightPanel(leftW, 0, w - leftW, h, now);
+
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame((t) => { lastFrame = t; frame(t); });
+})();
+</script>
+</body>
+</html>

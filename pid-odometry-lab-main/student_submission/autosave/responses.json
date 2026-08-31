@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "saved_at": "2026-07-21T15:36:24",
+  "identity": {
+    "name": "",
+    "student_id": "",
+    "section": ""
+  },
+  "checkins": {},
+  "explanations": {},
+  "activity_gifs": {
+    "mission_3": [
+      "latest_drive.gif"
+    ]
+  }
+}

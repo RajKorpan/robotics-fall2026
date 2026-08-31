@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --ink:#0b1220; --muted:#475467; --line:#d0d5dd; --accent:#2563eb;
+      --accent-soft:#eff6ff; --good:#12b76a; --bad:#f04438; --warn:#f79009;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; font-family:"Segoe UI", system-ui, -apple-system, sans-serif; color:var(--ink); }
+    #root { padding:2px; }
+    .hero {
+      border-radius:16px; padding:30px 28px; margin:0 0 18px; color:#fff;
+      background:radial-gradient(1200px 400px at 20% -10%, #2b6f76, transparent), linear-gradient(120deg,#0f172a,#1e3a5f);
+    }
+    .hero .kicker { font-size:.8rem; letter-spacing:.12em; text-transform:uppercase; opacity:.8; font-weight:800; }
+    .hero h1 { margin:.3rem 0 .6rem; font-size:2.1rem; line-height:1.05; }
+    .hero p { margin:0; font-size:1.12rem; line-height:1.55; max-width:760px; opacity:.95; }
+    .section { border:1px solid var(--line); border-radius:16px; background:#fff; padding:22px 24px; margin:0 0 18px; }
+    .section .kicker { font-size:.76rem; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); font-weight:800; }
+    .section h3 { margin:.2rem 0 .5rem; font-size:1.45rem; }
+    .lead { font-size:1.1rem; line-height:1.55; margin:8px 0 12px; }
+    .note { font-size:.98rem; line-height:1.5; color:var(--muted); margin:8px 0; }
+    .btn { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:10px;
+      padding:.6rem 1.2rem; font-weight:800; font-size:1rem; cursor:pointer; }
+    .btn:hover { background:#f2f4f7; }
+    .btn:disabled { opacity:.4; cursor:default; }
+    .btn.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .btn.primary:hover { background:#1d4ed8; }
+    .btn.big { padding:.8rem 1.6rem; font-size:1.08rem; }
+    .row { display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start; }
+    .center { text-align:center; }
+    canvas { display:block; background:#0f172a; border-radius:12px; border:1px solid #1e293b; outline:none; touch-action:none; }
+    canvas:focus { box-shadow:0 0 0 3px rgba(37,99,235,.45); }
+    .hud { display:flex; gap:18px; align-items:center; justify-content:center; margin:10px 0; flex-wrap:wrap; }
+    .hud .chip { background:#0f172a; color:#fff; border-radius:999px; padding:.4rem .9rem; font-weight:800; font-variant-numeric:tabular-nums; }
+    .hud .chip.warn { background:#7c2d12; }
+    .hud .chip.good { background:#065f46; }
+    .obs-card { border:1px solid var(--line); border-radius:12px; padding:14px 16px; background:#0b1220; color:#e5e7eb; min-width:230px; }
+    .obs-card h4 { margin:0 0 10px; font-size:1rem; color:#fff; }
+    .obs-grid3 { display:grid; grid-template-columns:repeat(3,46px); grid-gap:5px; justify-content:center; }
+    .ocell { width:46px; height:46px; border-radius:8px; border:1px solid #1e293b; background:#111827;
+      display:flex; align-items:center; justify-content:center; font-size:1.4rem; }
+    .ocell.me { background:#1d4ed8; border-color:#3b82f6; }
+    .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:.92rem; color:var(--muted); margin:8px 0; }
+    .legend b { color:var(--ink); }
+    .pill { display:inline-block; padding:.2rem .6rem; border-radius:999px; font-weight:800; font-size:.85rem; }
+    .pill.good { background:#ecfdf3; color:#027a48; } .pill.bad { background:#fef3f2; color:#b42318; }
+    .hidden { display:none; }
+    .rounds { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
+    .roundpill { border:1px solid var(--line); border-radius:999px; padding:.35rem .8rem; font-weight:800; font-size:.9rem; color:var(--muted); }
+    .roundpill.done { background:#ecfdf3; border-color:var(--good); color:#027a48; }
+    .roundpill.active { background:var(--accent-soft); border-color:var(--accent); color:#1d4ed8; }
+    .bars { display:flex; align-items:flex-end; gap:10px; height:120px; padding:8px 0; }
+    .bar { width:46px; background:var(--accent); border-radius:6px 6px 0 0; position:relative; transition:height .4s; }
+    .bar .v { position:absolute; top:-20px; left:0; right:0; text-align:center; font-size:.8rem; font-weight:800; }
+    .bar .l { position:absolute; bottom:-22px; left:0; right:0; text-align:center; font-size:.78rem; color:var(--muted); }
+    .barwrap { display:flex; gap:14px; align-items:flex-end; }
+    .hint { font-size:.86rem; color:var(--muted); text-align:center; margin-top:6px; }
+    .big { font-size:1.9rem; font-weight:800; font-variant-numeric:tabular-nums; }
+
+    /* Big prominent score above the map */
+    .score-banner {
+      display:flex; align-items:baseline; justify-content:center; gap:10px;
+      margin:0 0 8px; padding:6px 14px; border-radius:12px;
+      background:#0b1220; border:1px solid #1e293b;
+    }
+    .score-label { font-size:0.8rem; letter-spacing:0.15em; color:#94a3b8; font-weight:800; }
+    .score-value {
+      font-size:2.6rem; font-weight:900; font-variant-numeric:tabular-nums; color:#e5e7eb;
+      transition:color 0.15s, transform 0.15s; line-height:1;
+    }
+    .score-value.bump-up { color:#34d399; transform:scale(1.18); }
+    .score-value.bump-down { color:#f87171; transform:scale(1.18); }
+
+    /* Floating +/- reward popup over the map */
+    .play-stage { position:relative; display:inline-block; }
+    .reward-pop {
+      position:absolute; left:50%; top:8px; transform:translateX(-50%);
+      font-size:1.8rem; font-weight:900; font-variant-numeric:tabular-nums;
+      pointer-events:none; opacity:0; text-shadow:0 2px 6px rgba(0,0,0,0.5);
+    }
+    .reward-pop.show-up { animation:floatUp 0.85s ease-out; color:#34d399; }
+    .reward-pop.show-down { animation:floatUp 0.85s ease-out; color:#f87171; }
+    @keyframes floatUp {
+      0% { opacity:0; transform:translateX(-50%) translateY(8px) scale(0.8); }
+      20% { opacity:1; transform:translateX(-50%) translateY(0) scale(1.1); }
+      100% { opacity:0; transform:translateX(-50%) translateY(-34px) scale(1); }
+    }
+
+    /* Policy-map rule rows: observation -> action */
+    .policy-rule {
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+      border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:8px 0; background:#fcfdff;
+    }
+    .mini-obs { display:grid; grid-template-columns:repeat(3,28px); grid-gap:3px; }
+    .mini-cell { width:28px; height:28px; border-radius:5px; border:1px solid #e4e7ec; background:#fff;
+      display:flex; align-items:center; justify-content:center; font-size:0.95rem; }
+    .mini-cell.me { background:#dbeafe; border-color:var(--accent); }
+    .mini-cell.blank { background:#f8fafc; border-color:#f1f5f9; }
+    .rule-arrow { color:var(--muted); font-weight:800; font-size:1.2rem; }
+    .rule-action { font-weight:800; font-size:1.05rem; }
+    .rule-action .glyph { font-size:1.4rem; margin-right:6px; }
+    .rule-why { font-size:0.88rem; color:var(--muted); }
+
+    /* Q-learning section */
+    .qstep { display:flex; gap:14px; align-items:flex-start; padding:12px 0; border-top:1px solid var(--line); }
+    .qstep:first-of-type { border-top:none; }
+    .qstep h4 { margin:0 0 4px; font-size:1.08rem; }
+    .qstep-num { flex:0 0 auto; width:2rem; height:2rem; border-radius:999px; background:var(--accent);
+      color:#fff; font-weight:900; display:flex; align-items:center; justify-content:center; }
+    .qcallout { margin-top:14px; padding:14px 16px; border-radius:12px; background:var(--accent-soft);
+      border:1px solid #bfdbfe; font-size:1.04rem; line-height:1.5; }
+    /* Timeline + Q-table visualization */
+    .timeline { margin:10px 0 14px; }
+    #time-slider { width:100%; }
+    .timeline-ends { display:flex; justify-content:space-between; font-size:0.8rem; color:var(--muted); margin-top:2px; }
+    .time-label { font-weight:800; margin-top:6px; }
+    .qviz-row { display:grid; grid-template-columns:1.4fr 1fr; gap:16px; align-items:start; }
+    @media (max-width:680px){ .qviz-row { grid-template-columns:1fr; } }
+    .qtable-card, .strategy-card { border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:#fcfdff; }
+    .qtable-title { font-weight:800; font-size:0.96rem; margin-bottom:8px; }
+    .qtable-foot { font-size:0.78rem; color:var(--muted); margin-top:8px; line-height:1.4; }
+    /* Notebook entries: "when it sees ___, here's how good each move looks" */
+    .qentry { border:1px solid #e4e7ec; border-radius:10px; padding:9px 11px; margin-bottom:8px; background:#fff; }
+    .qentry-head { font-size:0.86rem; color:var(--ink); margin-bottom:7px; }
+    .qentry-head b { font-weight:800; }
+    .qbars { display:flex; flex-direction:column; gap:4px; }
+    .qbar-row { display:grid; grid-template-columns:74px 1fr; align-items:center; gap:8px; }
+    .qbar-name { font-size:0.82rem; color:var(--muted); text-align:right; white-space:nowrap; }
+    .qbar-name.win { color:#065f46; font-weight:800; }
+    .qbar-track { position:relative; height:16px; background:#f1f5f9; border-radius:5px; }
+    .qbar-mid { position:absolute; left:50%; top:0; bottom:0; width:1px; background:#cbd5e1; }
+    .qbar-fill { position:absolute; top:0; bottom:0; border-radius:4px; transition:left .25s, width .25s, background .25s; }
+    .qbar-tag { font-size:0.72rem; color:#94a3b8; }
+    .explore-bar { display:flex; height:20px; border-radius:999px; overflow:hidden; border:1px solid var(--line); margin:4px 0 6px; }
+    .explore-seg { height:100%; transition:width .25s; }
+    .explore-seg.explore { background:#f59e0b; }
+    .explore-seg.greedy { background:#2563eb; }
+    .explore-legend { font-size:0.84rem; color:var(--muted); line-height:1.7; }
+    .explore-legend .dot { display:inline-block; width:10px; height:10px; border-radius:999px; margin-right:4px; vertical-align:middle; }
+    .dot.explore { background:#f59e0b; } .dot.greedy { background:#2563eb; }
+    .eps-label { font-weight:800; }
+  </style>
+</head>
+<body>
+  <div id="root">
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="kicker">Reinforcement Learning</div>
+      <h1>You are the agent.</h1>
+      <p>A reinforcement learning agent is dropped into a world with <b>no rulebook</b>. It doesn't
+      know what helps or what hurts — it just senses what's around it, tries a move, and sees what
+      score it gets. Bit by bit, it learns a winning strategy on its own.
+      <br><br><b>We're going to make you that agent.</b> You'll play a little game, but
+      <b>we won't tell you the rules.</b> Move around, watch your score, and figure it out — exactly
+      the way an RL agent has to.</p>
+    </div>
+
+    <!-- TASK -->
+    <div class="section" id="sec-example">
+      <div class="kicker">Your task</div>
+      <h3>Figure out how to play — like an agent would</h3>
+      <p class="lead">You're about to be dropped into a random game. <b>No rules, no instructions.</b>
+      Move around, watch your score, and learn how it works through <b>trial and error</b>. You'll
+      only see the squares right next to you — so you have to explore.</p>
+      <button class="btn primary big" id="start-playing">Start</button>
+    </div>
+
+    <!-- PLAY (observation-only) -->
+    <div class="section hidden" id="sec-play">
+      <div class="kicker">Round <span id="round-num">1</span> of <span id="round-total">3</span></div>
+      <h3>Explore. You only see what's next to you.</h3>
+      <div class="rounds" id="rounds"></div>
+      <div class="row" style="align-items:flex-start;">
+        <div class="center">
+          <div class="score-banner">
+            <span class="score-label">SCORE</span>
+            <span class="score-value" id="score-big">0</span>
+          </div>
+          <div class="play-stage">
+            <canvas id="play" width="300" height="300" tabindex="0"></canvas>
+            <div class="reward-pop" id="reward-pop"></div>
+          </div>
+          <div class="hud">
+            <span class="chip" id="moves-chip">Moves left: —</span>
+          </div>
+          <div class="hint">Click the grid, then steer with ← ↑ → ↓</div>
+        </div>
+        <div class="obs-card">
+          <h4>👁️ What you can see</h4>
+          <div class="obs-grid3" id="obs-grid"></div>
+          <p class="note" style="color:#9ca3af; margin-top:12px;">Only your four neighbors — up,
+          down, left, right. This is your whole <b>observation</b>. ⛔ marks the edge of the grid.</p>
+        </div>
+      </div>
+      <div class="note" id="play-feedback"></div>
+    </div>
+
+    <!-- RL FROM SCRATCH -->
+    <div class="section hidden" id="sec-scratch">
+      <div class="kicker">Now the machine's turn</div>
+      <h3>Watch an RL agent learn the same game</h3>
+      <p class="lead">You just learned this game with no rulebook — only by trying things and watching
+      your score. Now an <b>RL agent</b> does exactly that, from zero. It starts out moving randomly
+      and dying on spikes. As it plays thousands of <b>episodes</b>, it keeps what worked and drops
+      what didn't. Watch the <b>reward graph</b> climb as it gets better.</p>
+      <p class="note"><b>An episode is one full attempt at the game</b> — from the start square until
+      the agent reaches the flag, hits a spike, or runs out of moves. Each round you played was one
+      episode. The agent needs <i>thousands</i> of them to learn, so the counter below races ahead.</p>
+      <div class="row" style="align-items:flex-start;">
+        <div class="center">
+          <canvas id="scratch-replay" width="300" height="300"></canvas>
+          <div class="hud">
+            <span class="chip" id="scratch-ep">Episode 0</span>
+            <span class="chip good" id="scratch-score">—</span>
+          </div>
+          <div class="hint">A fresh, never-seen board each time</div>
+        </div>
+        <div style="flex:1; min-width:260px;">
+          <div style="font-weight:700; margin-bottom:4px;">Reward over training</div>
+          <div id="scratch-graph"></div>
+          <p class="note" id="scratch-note" style="margin-top:10px;"></p>
+          <button class="btn primary big" id="scratch-btn">Let it learn ▶</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- POLICY MAP -->
+    <div class="section hidden" id="sec-policymap">
+      <div class="kicker">What it actually learned</div>
+      <h3>The policy: a mapping from observation to action</h3>
+      <p class="lead">A <b>policy</b> is just a lookup: <b>&ldquo;when I see <i>this</i>, do
+      <i>that</i>.&rdquo;</b> For this game, that means:</p>
+      <div class="row">
+        <div class="obs-card" style="flex:1; min-width:240px; background:#fff; color:var(--ink);">
+          <h4 style="color:var(--ink);">👁️ The observation</h4>
+          <p class="note" style="color:var(--muted);">Everything the agent senses each step:</p>
+          <ul style="margin:6px 0 0 1.1rem; padding:0; font-size:0.96rem; line-height:1.6;">
+            <li>the cell <b>above, below, left, right</b> (gem 💎, spike 🔺, flag 🚩, empty, or edge ⛔)</li>
+            <li>its <b>last 4 moves</b> (so it can tell it's not just circling)</li>
+          </ul>
+          <p class="note" style="color:var(--muted);">That's it — no map, no position. The agent acts
+          on this small window alone.</p>
+        </div>
+        <div class="obs-card" style="flex:1; min-width:240px; background:#fff; color:var(--ink);">
+          <h4 style="color:var(--ink);">🎮 The actions</h4>
+          <p class="note" style="color:var(--muted);">The four choices it can make:</p>
+          <div style="font-size:1.6rem; letter-spacing:.3rem;">⬆️ ⬇️ ⬅️ ➡️</div>
+          <p class="note" style="color:var(--muted);">The policy's whole job is to pick one of these
+          for each observation. Below are real entries from the table it just learned:</p>
+        </div>
+      </div>
+      <div style="font-weight:800; margin:14px 0 6px;">A few rules from the learned policy:</div>
+      <div id="policy-rules"></div>
+      <p class="note" id="policymap-note" style="margin-top:10px;"></p>
+      <div class="center" style="margin-top:14px;">
+        <button class="btn primary big" id="policymap-continue">Continue</button>
+      </div>
+    </div>
+
+    <!-- Q-LEARNING DEEPER -->
+    <div class="section hidden" id="sec-qlearning">
+      <div class="kicker">How the learning works</div>
+      <h3>How did the points turn into a strategy?</h3>
+      <p class="lead">When you played, nobody told you spikes were bad. You <i>felt</i> it: you stepped
+      on a 🔺, the score dropped, and you thought <b>&ldquo;okay — don't do that again.&rdquo;</b> You
+      hit a 💎, the score jumped, and you thought <b>&ldquo;more of that.&rdquo;</b> The reward was
+      your only teacher. <b>The agent learns the exact same way</b> — let's break it down.</p>
+
+      <div class="qstep">
+        <div class="qstep-num">1</div>
+        <div>
+          <h4>It keeps a &ldquo;goodness&rdquo; score for every move in every situation</h4>
+          <p class="note">Think of a giant notebook. For each thing it can see, it jots down how good
+          each of the four moves has turned out: <i>&ldquo;spike on my right → going right has been
+          very bad.&rdquo;</i> That number is the move's <b>Q-value</b> — its expected payoff. At the
+          start, the notebook is blank: every move looks equally fine.</p>
+        </div>
+      </div>
+
+      <div class="qstep">
+        <div class="qstep-num">2</div>
+        <div>
+          <h4>Every reward nudges the notebook</h4>
+          <p class="note">Take a move, see what happens. Land on a spike? The score for <i>that move in
+          that situation</i> gets nudged <b>down</b>. Reach the flag? The moves that led there get
+          nudged <b>up</b>. Do this thousands of times and the good moves float to the top — the same
+          &ldquo;don't do that again / more of that&rdquo; you felt, just written as numbers.</p>
+        </div>
+      </div>
+
+      <div class="qstep">
+        <div class="qstep-num">3</div>
+        <div style="flex:1;">
+          <h4>Early on it explores; later it exploits</h4>
+          <p class="note">At first the notebook is useless, so guessing randomly is actually smart —
+          that's how it <b>discovers</b> what's out there (you did this too, wandering on round 1).
+          As the notebook fills in, it trusts it more: it stops guessing and starts picking the
+          highest-scoring move — being <b>greedy</b>. <b>Drag the timeline</b> to watch training
+          unfold:</p>
+          <div class="timeline">
+            <input type="range" id="time-slider" min="0" max="100" value="0" />
+            <div class="timeline-ends"><span>start of training</span><span>fully trained</span></div>
+            <div class="time-label" id="time-label"></div>
+          </div>
+          <div class="qviz-row">
+            <div class="qtable-card">
+              <div class="qtable-title">The Q-table (the notebook)</div>
+              <div id="qtable-viz"></div>
+              <div class="qtable-foot">Each entry: how good every move looks. Bar grows <b style="color:#10b981;">right &amp; green</b> = good move, <b style="color:#ef4444;">left &amp; red</b> = bad move. The ✓ is the move it would pick.</div>
+            </div>
+            <div class="strategy-card">
+              <div class="qtable-title">How it's choosing moves</div>
+              <div class="explore-bar"><div id="eps-explore" class="explore-seg explore"></div><div id="eps-greedy" class="explore-seg greedy"></div></div>
+              <div id="eps-label" class="eps-label"></div>
+              <div class="explore-legend"><span class="dot explore"></span>random (exploring)<br><span class="dot greedy"></span>greedy (using the notebook)</div>
+              <p class="note" id="eps-note" style="margin-top:10px;"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="qcallout">
+        <b>That's Q-learning:</b> try moves, let the rewards score each move in each situation,
+        explore a lot at first, then trust the high scores. No rulebook — the points do the teaching.
+      </div>
+      <div class="center" style="margin-top:14px;">
+        <button class="btn primary big" id="qlearning-continue">Continue</button>
+      </div>
+    </div>
+
+    <!-- HANDOFF -->
+    <div class="section hidden" id="sec-done">
+      <div class="kicker">You've got the idea</div>
+      <h3>That's reinforcement learning</h3>
+      <p class="lead">Sense the world, try an action, see the reward, and adjust — over and over —
+      until a good strategy emerges, with nobody ever spelling out the rules. You did it; the agent
+      did it. Next we'll open up <b>how</b> that reward graph and the learning behind it actually
+      work — then point it all at balancing a pendulum.</p>
+    </div>
+
+  </div>
+
+  <script>
+    function streamlitMessage(t,d){ window.parent.postMessage(Object.assign({isStreamlitMessage:true,type:t},d||{}),"*"); }
+    function ready(){ streamlitMessage("streamlit:componentReady",{apiVersion:1}); }
+    function setHeight(){ const r=document.getElementById("root"); streamlitMessage("streamlit:setFrameHeight",{height:r.scrollHeight+8}); }
+    function show(id){ document.getElementById(id).classList.remove("hidden"); }
+
+    // ---- World ---------------------------------------------------------------
+    const N=6, MAX_MOVES=40, TOTAL_ROUNDS=3;
+    const EMPTY=0,GEM=1,SPIKE=2,GOAL=4,OFF=-1;   // no walls; OFF = off-grid
+    const EMOJI={[EMPTY]:"",[GEM]:"💎",[SPIKE]:"🔺",[GOAL]:"🚩"};
+    const ACTIONS=["up","down","left","right"];
+    const AIDX={up:0,down:1,left:2,right:3};
+    const DCELL={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
+    // Reaching the goal (always bottom-right) dominates gems, so the policy
+    // commits to finishing. Spikes are INSTANT DEATH: hitting one ends the round.
+    const STEP_COST=-0.3, GEM_R=6, SPIKE_R=-25, GOAL_R=80;
+
+    function rngFrom(seed){ let s=seed>>>0; return ()=>(s=(s*1664525+1013904223)>>>0)/4294967296; }
+    // The gems and spikes are SHUFFLED on every board (the goal stays in the
+    // bottom-right). So the agent can't memorize one map — it has to learn
+    // transferable rules from what it sees around it.
+    function makeBoard(seed){
+      const rng = (seed===undefined) ? Math.random : rngFrom(seed);
+      const b=[]; for(let y=0;y<N;y++){ b.push([]); for(let x=0;x<N;x++) b[y].push(EMPTY); }
+      b[N-1][N-1]=GOAL;
+      const place=(type,n)=>{ let p=0,g=0; while(p<n&&g++<400){ const x=Math.floor(rng()*N),y=Math.floor(rng()*N);
+        if((x===0&&y===0)||(x===N-1&&y===N-1)||b[y][x]!==EMPTY) continue; b[y][x]=type; p++; } };
+      place(GEM,4); place(SPIKE,5);
+      return b;
+    }
+    function cellAt(b,x,y){ if(x<0||y<0||x>=N||y>=N) return OFF; return b[y][x]; }
+    function neighbors(b,ax,ay){
+      return { up:cellAt(b,ax,ay-1), down:cellAt(b,ax,ay+1), left:cellAt(b,ax-1,ay), right:cellAt(b,ax+1,ay) };
+    }
+    // What the agent learns on: the 4 neighbor cell types (no diagonals) + its
+    // last 4 moves. No absolute position, so it must generalize across boards.
+    function stateKey(b,ax,ay,hist){
+      const nb=neighbors(b,ax,ay);
+      return [nb.up,nb.down,nb.left,nb.right, ...hist].join(",");
+    }
+    function pushHist(hist, action){ return [...hist.slice(1), AIDX[action]]; }
+    const HIST0=[-1,-1,-1,-1];
+
+    // ---- Drawing -------------------------------------------------------------
+    // reveal: "all" full view, or a {x,y} agent pos to reveal only its 4
+    // neighbors + itself (no diagonals).
+    function drawBoard(ctx,b,a,reveal){
+      const cell=ctx.canvas.width/N;
+      ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+      for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+        const manh=Math.abs(x-a.x)+Math.abs(y-a.y);
+        const visible = (reveal==="all") || manh<=1;
+        ctx.fillStyle = !visible ? "#0b1220" : (((x+y)%2===0)?"#1e293b":"#172033");
+        ctx.fillRect(x*cell,y*cell,cell,cell);
+        if(visible && b[y][x]!==EMPTY){
+          ctx.font=(cell*0.6)+"px serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+          ctx.fillText(EMOJI[b[y][x]], x*cell+cell/2, y*cell+cell/2+1);
+        }
+      }
+      ctx.strokeStyle="#0b1220"; ctx.lineWidth=1;
+      for(let i=0;i<=N;i++){ ctx.beginPath();ctx.moveTo(i*cell,0);ctx.lineTo(i*cell,N*cell);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(0,i*cell);ctx.lineTo(N*cell,i*cell);ctx.stroke(); }
+      ctx.font=(cell*0.62)+"px serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+      ctx.fillText("🙂", a.x*cell+cell/2, a.y*cell+cell/2+1);
+    }
+
+    // ---- Simulation core (shared by play, replay, training) ------------------
+    function simStep(b,a,action){
+      const [dx,dy]=DCELL[action];
+      let nx=a.x+dx, ny=a.y+dy;
+      if(nx<0||ny<0||nx>=N||ny>=N){ nx=a.x; ny=a.y; }   // edge: stay put
+      let r=STEP_COST, done=false, died=false, won=false;
+      const h=cellAt(b,nx,ny);
+      if(h===GEM){ r+=GEM_R; b[ny][nx]=EMPTY; }
+      else if(h===SPIKE){ r+=SPIKE_R; done=true; died=true; } // instant death
+      else if(h===GOAL){ r+=GOAL_R; done=true; won=true; }
+      return { nx, ny, reward:r, done, died, won };
+    }
+    function ensQ(Q,k){ if(!Q[k]) Q[k]={up:0,down:0,left:0,right:0}; return Q[k]; }
+
+    // A few fixed neighbor-patterns to display in the Q-table timeline. Each is
+    // resolved to a real learned entry (any move-history) at snapshot time.
+    const VIZ_OBS=[
+      { nb:{up:EMPTY,down:GEM  ,left:EMPTY,right:EMPTY} },
+      { nb:{up:EMPTY,down:SPIKE,left:EMPTY,right:EMPTY} },
+      { nb:{up:EMPTY,down:EMPTY,left:SPIKE,right:GEM  } },
+      { nb:{up:GEM  ,down:EMPTY,left:EMPTY,right:SPIKE} },
+      { nb:{up:EMPTY,down:EMPTY,left:EMPTY,right:EMPTY} },
+    ];
+    // For a VIZ neighbor-pattern, find an actual learned Q entry that matches
+    // those 4 neighbors (any move-history), preferring the most-decided one.
+    function resolveVizRow(Q, nb){
+      const pref=[nb.up,nb.down,nb.left,nb.right].join(",")+",";
+      let best=null,bestMargin=-1;
+      for(const k in Q){
+        if(k.slice(0,pref.length)!==pref) continue;
+        const q=Q[k]; const v=[q.up,q.down,q.left,q.right].sort((a,b)=>b-a);
+        const margin=v[0]-v[1];
+        if(margin>bestMargin){ bestMargin=margin; best=q; }
+      }
+      return best;
+    }
+    // Snapshots of the VIZ_OBS Q-values across training: [{ep, eps, rows:[{up,down,left,right,seen}]}]
+    let qSnapshots=[];
+    function greedyAct(Q,b,ax,ay,hist){
+      const q=Q[stateKey(b,ax,ay,hist)];
+      if(!q) return ACTIONS[Math.floor(Math.random()*4)];
+      let best="up",bv=-Infinity; for(const a of ACTIONS) if(q[a]>bv){bv=q[a];best=a;} return best;
+    }
+
+    // ---- Player rounds (shuffled board each round) ---------------------------
+    let roundIndex=0;      // completed rounds
+    let reachedFlag=false; // has the player ever reached the goal?
+    let cur=null;
+
+    function renderRounds(){
+      const host=document.getElementById("rounds"); const cells=[];
+      const shown=Math.max(TOTAL_ROUNDS, roundIndex + (cur&&!cur.done?1:0));
+      for(let i=0;i<shown;i++){
+        const cls = i<roundIndex ? "done" : (i===roundIndex ? "active" : "");
+        cells.push(`<span class="roundpill ${cls}">Round ${i+1}${i<roundIndex?" ✓":""}</span>`);
+      }
+      host.innerHTML=cells.join("");
+      document.getElementById("round-num").textContent=roundIndex+1;
+      document.getElementById("round-total").textContent=Math.max(TOTAL_ROUNDS, roundIndex+1);
+    }
+
+    function startRound(){
+      cur = { board:makeBoard(), a:{x:0,y:0}, score:0, moves:MAX_MOVES, hist:HIST0.slice(), done:false };
+      renderRounds(); drawPlay(); drawObs(); updateHud();
+      document.getElementById("play-feedback").textContent="";
+      document.getElementById("play").focus();
+    }
+
+    const playCtx=document.getElementById("play").getContext("2d");
+    function drawPlay(){ drawBoard(playCtx, cur.board, cur.a, cur.a); } // reveal only 4 neighbors
+    function drawObs(){
+      const nb=neighbors(cur.board,cur.a.x,cur.a.y);
+      const layout=[null,"up",null,"left","me","right",null,"down",null];
+      document.getElementById("obs-grid").innerHTML=layout.map(slot=>{
+        if(slot===null) return `<div class="ocell" style="background:#0b1220;border-color:#0b1220;"></div>`;
+        if(slot==="me") return `<div class="ocell me">🙂</div>`;
+        const v=nb[slot];
+        return `<div class="ocell">${v===OFF?"⛔":EMOJI[v]}</div>`;
+      }).join("");
+    }
+    function updateHud(){
+      const m=document.getElementById("moves-chip");
+      m.textContent="Moves left: "+cur.moves;
+      m.className="chip"+(cur.moves<=8?" warn":"");
+      const big=document.getElementById("score-big");
+      big.textContent=cur.score.toFixed(1);
+    }
+
+    function flashReward(r){
+      // Big number pulse
+      const big=document.getElementById("score-big");
+      big.classList.remove("bump-up","bump-down");
+      void big.offsetWidth; // restart transition
+      big.classList.add(r>=0 ? "bump-up" : "bump-down");
+      setTimeout(()=>big.classList.remove("bump-up","bump-down"), 200);
+      // Floating +/- popup over the map
+      const pop=document.getElementById("reward-pop");
+      pop.classList.remove("show-up","show-down");
+      void pop.offsetWidth;
+      const sign = r>=0 ? "+" : "−";
+      pop.textContent = sign + Math.abs(r).toFixed(1);
+      pop.classList.add(r>=0 ? "show-up" : "show-down");
+    }
+
+    function playerStep(action){
+      if(!cur || cur.done) return;
+      const o=simStep(cur.board, cur.a, action);
+      cur.a.x=o.nx; cur.a.y=o.ny; cur.hist=pushHist(cur.hist,action);
+      cur.score+=o.reward; cur.moves--;
+      drawPlay(); drawObs(); updateHud();
+      flashReward(o.reward);
+      if(o.won){ endRound("goal"); }
+      else if(o.died){ endRound("died"); }
+      else if(cur.moves<=0){ endRound("timeout"); }
+    }
+
+    // Player is "done playing" once they've completed >=3 rounds AND reached the
+    // flag at least once.
+    function donePlaying(){ return roundIndex>=TOTAL_ROUNDS && reachedFlag; }
+
+    function endRound(outcome){
+      cur.done=true;
+      if(outcome==="goal") reachedFlag=true;
+      roundIndex++;
+      const fb=document.getElementById("play-feedback");
+      const head = outcome==="goal"
+        ? `<span class="pill good">🚩 You reached the flag!</span> Score: <b>${cur.score.toFixed(1)}</b>.`
+        : outcome==="died"
+          ? `<span class="pill bad">💀 A red triangle was instant death.</span> Score: <b>${cur.score.toFixed(1)}</b>.`
+          : `<span class="pill bad">Out of moves.</span> Score: <b>${cur.score.toFixed(1)}</b>.`;
+      renderRounds();
+      if(donePlaying()){
+        fb.innerHTML = head + ` &nbsp; <b>Nice — you learned to play with no rulebook. Now watch a real agent do the same.</b>`;
+        show("sec-scratch");
+        setTimeout(()=>document.getElementById("sec-scratch").scrollIntoView({behavior:"smooth",block:"start"}),200);
+      } else {
+        const need = roundIndex<TOTAL_ROUNDS
+          ? `Round ${roundIndex+1} of ${TOTAL_ROUNDS}.`
+          : `Keep going until you reach the 🚩 flag at least once.`;
+        fb.innerHTML = head + ` &nbsp; ${need} &nbsp; <button class="btn primary" id="next-round">Next round ▶</button>`;
+        document.getElementById("next-round").onclick=()=>{ startRound();
+          document.getElementById("play").scrollIntoView({behavior:"smooth",block:"center"}); };
+      }
+      setHeight();
+    }
+
+    function renderLineChart(hostId, data, opts){
+      // data: array of {x, y}; draws a simple SVG line + zero baseline.
+      const host=document.getElementById(hostId);
+      const W=320,H=150,pad=24;
+      const xs=data.map(d=>d.x), ys=data.map(d=>d.y);
+      const xmin=Math.min(...xs), xmax=Math.max(...xs,1);
+      const ymin=Math.min(0,...ys), ymax=Math.max(1,...ys);
+      const sx=x=>pad+(W-2*pad)*((x-xmin)/((xmax-xmin)||1));
+      const sy=y=>H-pad-(H-2*pad)*((y-ymin)/((ymax-ymin)||1));
+      const path=data.map((d,i)=>(i?"L":"M")+sx(d.x).toFixed(1)+" "+sy(d.y).toFixed(1)).join(" ");
+      const zeroY=sy(0);
+      host.innerHTML=`<svg width="100%" viewBox="0 0 ${W} ${H}" style="background:#0b1220;border-radius:8px;">
+        <line x1="${pad}" y1="${zeroY}" x2="${W-pad}" y2="${zeroY}" stroke="#334155" stroke-dasharray="3 3"/>
+        <path d="${path}" fill="none" stroke="${opts.color||'#60a5fa'}" stroke-width="2.5"/>
+        ${data.map(d=>`<circle cx="${sx(d.x)}" cy="${sy(d.y)}" r="2.5" fill="${opts.color||'#60a5fa'}"/>`).join("")}
+        <text x="${pad}" y="${H-6}" fill="#94a3b8" font-size="10">${opts.xlabel||""}</text>
+        <text x="${W-pad}" y="${H-6}" fill="#94a3b8" font-size="10" text-anchor="end">${xmax}</text>
+        <text x="4" y="${pad}" fill="#94a3b8" font-size="10">${Math.round(ymax)}</text>
+        <text x="4" y="${zeroY-2}" fill="#64748b" font-size="9">0</text>
+      </svg>`;
+    }
+
+    // ---- Animate a greedy Q policy on a fresh shuffled board -----------------
+    // speed = ms per step (lower = faster). doneCb(score, won) fires at the end.
+    // Find a fresh board the greedy policy actually solves (so the showcase
+    // round ends at the flag, not an unlucky early death). Falls back to any
+    // board after a few tries.
+    function pickSolvableBoard(Q, tries){
+      tries = tries || 1;
+      let board=null;
+      for(let t=0;t<tries;t++){
+        const b=makeBoard(); let a={x:0,y:0}, m=MAX_MOVES, hist=HIST0.slice(), won=false;
+        const probe=b.map(r=>r.slice());
+        while(m-->0){ const act=greedyAct(Q,probe,a.x,a.y,hist); const o=simStep(probe,a,act);
+          a.x=o.nx; a.y=o.ny; hist=pushHist(hist,act); if(o.done){won=o.won;break;} }
+        board=b; if(won) return b;
+      }
+      return board;
+    }
+
+    let animToken=0;
+    function animatePolicy(canvas, Q, pill, speed, doneCb, board){
+      const myToken=++animToken;          // cancel any earlier animation on this canvas
+      speed = speed || 160;
+      const ctx=canvas.getContext("2d");
+      const b=board || makeBoard(); let a={x:0,y:0}, s=0, m=MAX_MOVES, hist=HIST0.slice();
+      drawBoard(ctx,b,a,"all");
+      const tick=()=>{
+        if(myToken!==animToken) return;   // a newer animation superseded this one
+        if(m<=0){ pill.textContent=s.toFixed(0)+" pts"; if(doneCb)doneCb(s,false); return; }
+        const act=greedyAct(Q,b,a.x,a.y,hist);
+        const o=simStep(b,a,act); s+=o.reward; a.x=o.nx; a.y=o.ny; hist=pushHist(hist,act); m--;
+        drawBoard(ctx,b,a,"all"); pill.textContent=s.toFixed(0)+" pts";
+        if(o.done){ pill.textContent=s.toFixed(0)+" pts "+(o.won?"🚩":"💀"); if(doneCb)doneCb(s,o.won); return; }
+        setTimeout(tick,speed);
+      };
+      setTimeout(tick, Math.min(250,speed));
+    }
+
+    // ---- From-scratch RL (live) ----------------------------------------------
+    document.getElementById("scratch-btn").onclick=()=>{ runScratchLearning(); };
+    function runScratchLearning(){
+      document.getElementById("scratch-btn").disabled=true;
+      const Q={}; const alpha=0.3, gamma=0.95;
+      const curve=[];                 // {x:episode, y:avg score}
+      let ep=0; const TOTAL=8000;
+      const epEl=document.getElementById("scratch-ep");
+      const noteEl=document.getElementById("scratch-note");
+      qSnapshots=[];
+
+      function snapshot(eps){
+        qSnapshots.push({ ep, eps, rows: VIZ_OBS.map(o=>{
+          const q=resolveVizRow(Q, o.nb);
+          return q ? {up:q.up,down:q.down,left:q.left,right:q.right, seen:true}
+                   : {up:0,down:0,left:0,right:0, seen:false};
+        }) });
+      }
+      snapshot(1); // blank-notebook starting point
+
+      function trainEpisode(eps){
+        const b=makeBoard(); let a={x:0,y:0}, m=MAX_MOVES, hist=HIST0.slice();
+        while(m-->0){
+          const qk=ensQ(Q, stateKey(b,a.x,a.y,hist));
+          let act; if(Math.random()<eps) act=ACTIONS[Math.floor(Math.random()*4)];
+          else { let bv=-Infinity; act="up"; for(const aa of ACTIONS) if(qk[aa]>bv){bv=qk[aa];act=aa;} }
+          const o=simStep(b,a,act);
+          const nh=pushHist(hist,act);
+          const nq=ensQ(Q, stateKey(b,o.nx,o.ny,nh));
+          const fut=o.done?0:Math.max(nq.up,nq.down,nq.left,nq.right);
+          qk[act]+=alpha*(o.reward+gamma*fut-qk[act]);
+          a.x=o.nx; a.y=o.ny; hist=nh; if(o.done)break;
+        }
+      }
+      // average greedy score over many fresh boards (generalization, not memorization)
+      function evalAgent(){
+        let tot=0,won=0,K=40;
+        for(let i=0;i<K;i++){ const b=makeBoard(); let a={x:0,y:0},m=MAX_MOVES,s=0,hist=HIST0.slice();
+          while(m-->0){ const act=greedyAct(Q,b,a.x,a.y,hist); const o=simStep(b,a,act);
+            s+=o.reward; a.x=o.nx; a.y=o.ny; hist=pushHist(hist,act); if(o.done){if(o.won)won++;break;} }
+          tot+=s; }
+        return { avg:tot/K, winPct:Math.round(won/K*100) };
+      }
+
+      function finishWithFullRound(){
+        // Training done: let the trained agent play one full round at normal,
+        // watchable speed (no interruptions) before the handoff.
+        epEl.textContent="Trained ("+TOTAL+" episodes)";
+        noteEl.innerHTML="Done training. <b>Now watch it play one full round at normal speed</b> on a board it has never seen.";
+        setHeight();
+        const showcase=pickSolvableBoard(Q, 8);
+        animatePolicy(document.getElementById("scratch-replay"), Q, document.getElementById("scratch-score"), 320, ()=>{
+          noteEl.innerHTML="That's the trained policy in action. Below: what that policy actually <i>is</i>.";
+          renderPolicyMap(Q);
+          show("sec-policymap"); setTimeout(()=>document.getElementById("sec-policymap").scrollIntoView({behavior:"smooth",block:"start"}),300);
+          setHeight();
+        }, showcase);
+      }
+
+      function loop(){
+        if(ep>=TOTAL){ snapshot(0.08); finishWithFullRound(); return; }
+        const eps=Math.max(0.08, 1 - ep/5000);
+        const batch = ep===0?1:400;
+        for(let i=0;i<batch;i++){ trainEpisode(eps); ep++; }
+        epEl.textContent="Episode "+ep;
+        snapshot(eps);
+        const res=evalAgent();
+        curve.push({x:ep, y:res.avg});
+        renderLineChart("scratch-graph", curve, {color:"#60a5fa", xlabel:"episodes →"});
+        if(curve.length<=1) noteEl.innerHTML="Episode 1: basically random — it bumps into spikes and rarely finds the flag.";
+        else if(res.winPct>=50) noteEl.innerHTML=`It now reaches the flag on about <b>${res.winPct}%</b> of brand-new boards. It learned a strategy, not a memorized path.`;
+        else noteEl.innerHTML=`Improving — the reward curve is climbing as it learns which moves pay off (${res.winPct}% of new boards solved so far).`;
+        // quick snapshot replay during training
+        animatePolicy(document.getElementById("scratch-replay"), Q, document.getElementById("scratch-score"), 90);
+        setTimeout(loop, 600);
+      }
+      loop();
+    }
+
+    // ---- Policy map: harvest REAL rules straight from the learned Q-table ----
+    function renderPolicyMap(Q){
+      const ACT_GLYPH={up:"⬆️",down:"⬇️",left:"⬅️",right:"➡️"};
+      const ACT_NAME={up:"go up",down:"go down",left:"go left",right:"go right"};
+      const CELL_GLYPH={[GEM]:"💎",[SPIKE]:"🔺",[GOAL]:"🚩",[EMPTY]:"",[OFF]:"⛔",};
+
+      function bestAction(q){ let bv=-Infinity,b="up"; for(const a of ACTIONS) if(q[a]>bv){bv=q[a];b=a;} return b; }
+      function whyFor(nb, act){
+        if(nb[act]===GOAL) return "steps onto the flag";
+        if(nb[act]===GEM) return "grabs a gem";
+        if(nb[act]===SPIKE) return "(!) toward a spike";
+        // does it avoid a neighboring spike?
+        const spikes=ACTIONS.filter(a=>nb[a]===SPIKE);
+        if(spikes.length && nb[act]!==SPIKE) return "avoids the spike";
+        const gems=ACTIONS.filter(a=>nb[a]===GEM);
+        if(gems.length && nb[act]===GEM) return "goes for the gem";
+        return "heads toward the goal";
+      }
+
+      // Collect learned states, prefer ones with a clear winner and an
+      // interesting neighbor (gem/spike/flag), so the examples teach something.
+      const keys=Object.keys(Q);
+      const scored=keys.map(k=>{
+        const parts=k.split(",").map(Number);
+        const nb={ up:parts[0], down:parts[1], left:parts[2], right:parts[3] };
+        const q=Q[k]; const vals=ACTIONS.map(a=>q[a]).sort((a,b)=>b-a);
+        const margin=vals[0]-vals[1];                 // confidence
+        const interesting=[nb.up,nb.down,nb.left,nb.right].some(c=>c===GEM||c===SPIKE||c===GOAL);
+        return { k, nb, q, margin, interesting };
+      }).filter(s=>s.margin>0.3);
+      scored.sort((a,b)=> (b.interesting-a.interesting) || (b.margin-a.margin));
+
+      // de-dup by neighbor pattern so rows look varied
+      const seen=new Set(); const picks=[];
+      for(const s of scored){ const sig=[s.nb.up,s.nb.down,s.nb.left,s.nb.right].join("|");
+        if(seen.has(sig)) continue; seen.add(sig); picks.push(s); if(picks.length>=6) break; }
+
+      const rows=picks.map(s=>{
+        const act=bestAction(s.q);
+        const slot=(pos)=> pos==="me" ? `<div class="mini-cell me">🙂</div>`
+          : pos===null ? `<div class="mini-cell blank"></div>`
+          : `<div class="mini-cell">${CELL_GLYPH[s.nb[pos]]||""}</div>`;
+        const grid=[null,"up",null,"left","me","right",null,"down",null].map(slot).join("");
+        return `<div class="policy-rule">
+          <div class="mini-obs">${grid}</div>
+          <span class="rule-arrow">→</span>
+          <span class="rule-action"><span class="glyph">${ACT_GLYPH[act]}</span>${ACT_NAME[act]}</span>
+          <span class="rule-why">— ${whyFor(s.nb, act)}</span>
+        </div>`;
+      }).join("");
+      document.getElementById("policy-rules").innerHTML = rows ||
+        `<div class="note">The agent's table is still sparse — let it train a bit longer for clearer rules.</div>`;
+      document.getElementById("policymap-note").innerHTML=`These rows are pulled straight from the agent's learned table (it holds <b>${keys.length.toLocaleString()}</b> situations in all). A policy is nothing more than this: a best action for every observation.`;
+    }
+    document.getElementById("policymap-continue").onclick=()=>{
+      show("sec-qlearning"); renderQTimeline();
+      document.getElementById("sec-qlearning").scrollIntoView({behavior:"smooth",block:"start"}); setHeight();
+    };
+
+    // ---- Q-learning timeline: scrub training; show Q-table + explore/greedy --
+    function renderQTimeline(){
+      const sl=document.getElementById("time-slider");
+      const timeLabel=document.getElementById("time-label");
+      const viz=document.getElementById("qtable-viz");
+      const expSeg=document.getElementById("eps-explore");
+      const grdSeg=document.getElementById("eps-greedy");
+      const epsLabel=document.getElementById("eps-label");
+      const note=document.getElementById("eps-note");
+      if(!qSnapshots.length) return;
+
+      // Plain-language description of what the agent sees in a VIZ row.
+      function obsPhrase(nb){
+        const word={[GEM]:"💎 gem",[SPIKE]:"🔺 spike",[GOAL]:"🚩 flag"};
+        const dir={up:"above",down:"below",left:"to the left",right:"to the right"};
+        const parts=[];
+        for(const d of ["up","down","left","right"]) if(word[nb[d]]) parts.push(`a ${word[nb[d]]} ${dir[d]}`);
+        if(!parts.length) return "open space all around";
+        return parts.join(" and ");
+      }
+      const ARROW={up:"⬆️ up",down:"⬇️ down",left:"⬅️ left",right:"➡️ right"};
+
+      function paint(){
+        const frac=Number(sl.value)/100;
+        const idx=Math.min(qSnapshots.length-1, Math.round(frac*(qSnapshots.length-1)));
+        const snap=qSnapshots[idx];
+        const epsPct=Math.round(snap.eps*100);
+        timeLabel.textContent=`Episode ${snap.ep.toLocaleString()} of ${ (qSnapshots[qSnapshots.length-1].ep).toLocaleString() }`;
+
+        // One readable "notebook entry" per observation: bars showing how good
+        // each move looks (right=good/green, left=bad/red), winner highlighted.
+        const SCALE=50; // value -> half-width fraction
+        let html="";
+        for(let r=0;r<VIZ_OBS.length;r++){
+          const row=snap.rows[r];
+          const vals={up:row.up,down:row.down,left:row.left,right:row.right};
+          const best=Math.max(vals.up,vals.down,vals.left,vals.right);
+          const anyLearned=row.seen && (Math.abs(vals.up)+Math.abs(vals.down)+Math.abs(vals.left)+Math.abs(vals.right))>0.4;
+          const bars=["up","down","left","right"].map(a=>{
+            const v=vals[a];
+            const f=Math.max(-1,Math.min(1, v/50));
+            const w=Math.abs(f)*50;                  // half-track %
+            const left=f>=0?50:50-w;
+            const color=!anyLearned?"#cbd5e1":(f>=0?"#10b981":"#ef4444");
+            const isWin=anyLearned && v===best;
+            return `<div class="qbar-row">
+              <div class="qbar-name ${isWin?"win":""}">${ARROW[a]}${isWin?" ✓":""}</div>
+              <div class="qbar-track"><div class="qbar-mid"></div>
+                <div class="qbar-fill" style="left:${left}%;width:${Math.max(w,anyLearned?2:0)}%;background:${color};"></div>
+              </div>
+            </div>`;
+          }).join("");
+          const headline = anyLearned
+            ? `When it sees <b>${obsPhrase(VIZ_OBS[r].nb)}</b>, its best move is <b>${ARROW[Object.keys(vals).find(k=>vals[k]===best)]}</b>`
+            : `When it sees <b>${obsPhrase(VIZ_OBS[r].nb)}</b> — <span class="qbar-tag">not learned yet</span>`;
+          html+=`<div class="qentry"><div class="qentry-head">${headline}</div><div class="qbars">${bars}</div></div>`;
+        }
+        viz.innerHTML=html;
+        // explore/greedy
+        expSeg.style.width=epsPct+"%"; grdSeg.style.width=(100-epsPct)+"%";
+        epsLabel.textContent=`${epsPct}% random · ${100-epsPct}% greedy`;
+        if(epsPct>=80) note.innerHTML="<b>Just starting out.</b> The notebook is nearly blank, so it explores almost every move — like you wandering on round 1.";
+        else if(epsPct>=35) note.innerHTML="<b>Mid-training.</b> The bars are filling in. It mostly uses the notebook but still explores sometimes, hunting for better moves.";
+        else if(epsPct>10) note.innerHTML="<b>Getting confident.</b> Clear winners (green ✓) have appeared; it explores only occasionally now.";
+        else note.innerHTML="<b>Trained.</b> The good moves are locked in. It almost always goes greedy — picks the winning move in each entry.";
+      }
+      sl.addEventListener("input",paint);
+      paint();
+    }
+    document.getElementById("qlearning-continue").onclick=()=>{
+      show("sec-done"); document.getElementById("sec-done").scrollIntoView({behavior:"smooth",block:"start"}); setHeight();
+    };
+
+    // ---- Input + start -------------------------------------------------------
+    const playCanvas=document.getElementById("play");
+    playCanvas.addEventListener("pointerdown",()=>playCanvas.focus());
+    playCanvas.addEventListener("keydown",(e)=>{
+      const map={ArrowUp:"up",ArrowDown:"down",ArrowLeft:"left",ArrowRight:"right"};
+      if(map[e.key]){ e.preventDefault(); playerStep(map[e.key]); }
+    });
+    document.getElementById("start-playing").onclick=()=>{
+      show("sec-play"); startRound();
+      document.getElementById("sec-play").scrollIntoView({behavior:"smooth",block:"start"});
+      setHeight();
+    };
+
+    window.addEventListener("message",(e)=>{ if((e.data||{}).type==="streamlit:render") setHeight(); });
+    setHeight(); ready();
+  </script>
+</body>
+</html>

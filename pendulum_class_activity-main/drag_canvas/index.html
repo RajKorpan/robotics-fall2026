@@ -1,0 +1,1067 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      color-scheme: light;
+      --text: #20242a;
+      --muted: #667085;
+      --line: #d0d5dd;
+      --soft: #f5f7fa;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --danger: #b42318;
+      --white: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: transparent;
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+    }
+
+    .wrap {
+      display: grid;
+      gap: 12px;
+      height: 100%;
+      padding: 2px;
+    }
+
+    .title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .builder {
+      display: grid;
+      grid-template-columns: minmax(190px, 0.9fr) minmax(260px, 1.2fr);
+      gap: 12px;
+      min-height: 270px;
+    }
+
+    .reward-builder {
+      grid-template-columns: 1fr;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .panel-head {
+      padding: 9px 11px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .pool {
+      padding: 10px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      overflow: visible;
+    }
+
+    .group {
+      display: grid;
+      gap: 6px;
+    }
+
+    .group-title {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .chip-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--text);
+      cursor: grab;
+      font-weight: 650;
+      padding: 7px 10px;
+      user-select: none;
+      line-height: 1;
+    }
+
+    .chip:active {
+      cursor: grabbing;
+    }
+
+    .canvas {
+      min-height: 240px;
+      height: 100%;
+      padding: 12px;
+      display: grid;
+      align-content: start;
+      gap: 8px;
+      background: #fbfcfe;
+      border: 2px dashed transparent;
+    }
+
+    .canvas.drag-over {
+      border-color: var(--accent);
+      background: #eff6ff;
+    }
+
+    .empty {
+      min-height: 180px;
+      border: 2px dashed var(--line);
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--muted);
+      padding: 18px;
+    }
+
+    .obs-row,
+    .action-row,
+    .reward-row {
+      display: grid;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+      padding: 8px;
+      min-width: 0;
+    }
+
+    .obs-row {
+      grid-template-columns: 1fr auto;
+    }
+
+    .action-row {
+      grid-template-columns: 1fr minmax(86px, 120px) auto;
+    }
+
+    .reward-row {
+      grid-template-columns: 82px 78px 88px 1fr auto;
+    }
+
+    .equation-canvas {
+      min-height: 230px;
+      border: 2px dashed var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      align-items: center;
+      gap: 8px;
+      background: var(--white);
+    }
+
+    .equation-canvas.drop-before,
+    .func-hole.drop-before,
+    .equation-term.drop-before,
+    .equation-op.drop-before,
+    .equation-paren.drop-before,
+    .equation-func.drop-before {
+      border-color: var(--accent);
+      box-shadow: inset 4px 0 0 var(--accent);
+    }
+
+    .equation-canvas.drag-over {
+      border-color: var(--accent);
+      background: #eff6ff;
+    }
+
+    .equation-canvas .empty {
+      width: 100%;
+    }
+
+    .equation-term,
+    .equation-op,
+    .equation-paren,
+    .equation-func {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--soft);
+      min-height: 42px;
+    }
+
+    .equation-term {
+      display: grid;
+      grid-template-columns: auto 76px minmax(110px, 1fr) minmax(78px, 92px) auto;
+      align-items: center;
+      gap: 6px;
+      padding: 7px;
+      max-width: 100%;
+    }
+
+    .equation-op,
+    .equation-paren {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 7px;
+      font-weight: 800;
+    }
+
+    .equation-func {
+      display: grid;
+      gap: 6px;
+      padding: 7px;
+      min-width: 240px;
+      max-width: 100%;
+      font-weight: 800;
+    }
+
+    .func-head {
+      display: grid;
+      grid-template-columns: auto 76px auto minmax(74px, 96px) auto;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .drag-handle {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      cursor: grab;
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1;
+      padding: 3px 2px;
+      user-select: none;
+      opacity: 0.65;
+    }
+
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+
+    .drag-handle:hover {
+      opacity: 1;
+      color: var(--accent);
+    }
+
+    .func-hole {
+      min-height: 50px;
+      border: 2px dashed var(--line);
+      border-radius: 7px;
+      background: var(--white);
+      padding: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .func-hole.drag-over {
+      border-color: var(--accent);
+      background: #eff6ff;
+    }
+
+    .func-empty {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .func-close {
+      color: var(--muted);
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .equation-op select {
+      min-width: 70px;
+    }
+
+    .scale-spacer {
+      min-width: 1px;
+    }
+
+    .threshold-spacer {
+      min-width: 1px;
+    }
+
+    .equation-paren span,
+    .equation-func span {
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .plus {
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 650;
+    }
+
+    input,
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--white);
+      color: var(--text);
+      font: inherit;
+      padding: 6px 7px;
+      min-height: 32px;
+    }
+
+    .remove {
+      border: 0;
+      background: transparent;
+      color: var(--danger);
+      cursor: pointer;
+      font-weight: 700;
+      padding: 6px;
+    }
+
+    .formula {
+      color: #101828;
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.4;
+      padding: 8px 12px;
+      margin-top: 4px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+    }
+
+    @media (max-width: 720px) {
+      .builder {
+        grid-template-columns: 1fr;
+      }
+
+      .reward-row {
+        grid-template-columns: auto minmax(64px, 80px) minmax(72px, 90px) 1fr auto;
+      }
+
+      .equation-term {
+        grid-template-columns: auto 70px minmax(90px, 1fr) minmax(70px, 86px) auto;
+      }
+
+      .func-head {
+        grid-template-columns: auto 70px auto minmax(68px, 86px) auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script>
+    const state = {
+      mode: "reward",
+      title: "Builder",
+      pool: [],
+      value: [],
+      height: 360,
+      initialized: false,
+      resetId: "",
+      valueRegistered: false,
+    };
+
+    function streamlitMessage(type, data) {
+      window.parent.postMessage(
+        Object.assign({ isStreamlitMessage: true, type }, data || {}),
+        "*"
+      );
+    }
+
+    function ready() {
+      streamlitMessage("streamlit:componentReady", { apiVersion: 1 });
+    }
+
+    function setHeight() {
+      const root = document.getElementById("root");
+      const height = Math.max(state.height || 320, root.scrollHeight + 8);
+      streamlitMessage("streamlit:setFrameHeight", { height });
+    }
+
+    function sendValue() {
+      // Lock the frame height to the freshly rendered canvas height *before*
+      // Streamlit reruns, so the iframe never collapses/expands mid-rerun
+      // (which is what made the page flicker on the first drop). Defer the
+      // value commit one frame so the populated canvas is already painted.
+      setHeight();
+      requestAnimationFrame(() => {
+        streamlitMessage("streamlit:setComponentValue", {
+          value: state.value,
+          dataType: "json",
+        });
+        setHeight();
+      });
+    }
+
+    function labelFor(id) {
+      const item = state.pool.find((entry) => entry.id === id);
+      return item ? item.label : id;
+    }
+
+    function poolItemFor(id) {
+      return state.pool.find((entry) => entry.id === id) || null;
+    }
+
+    function scaleOptionsFor(id) {
+      const item = poolItemFor(id);
+      if (!item || !item.scales || typeof item.scales !== "object") return [];
+      return Object.entries(item.scales);
+    }
+
+    function defaultScaleFor(id) {
+      const item = poolItemFor(id);
+      if (item && item.default_scale) return item.default_scale;
+      return id === "pole_angle" ? "pi" : "unit";
+    }
+
+    function cleanScaleFor(id, scale) {
+      const options = scaleOptionsFor(id);
+      if (!options.length) return "unit";
+      return options.some(([value]) => value === scale) ? scale : defaultScaleFor(id);
+    }
+
+    function displayTerm(term) {
+      return labelFor(term.signal);
+    }
+
+    function functionForTransform(transform) {
+      return ["abs", "sin", "cos"].includes(transform) ? transform : null;
+    }
+
+    function isFunctionName(value) {
+      return ["abs", "sin", "cos", "min", "max"].includes(value);
+    }
+
+    function numericValue(value, fallback = 0) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    }
+
+    function normalizeSingleRewardToken(item) {
+      if (!item || typeof item !== "object") return null;
+      const itemType = item.type || (item.signal ? "term" : "");
+      if (itemType === "op") {
+        return {
+          type: "op",
+          op: item.op === "multiply" || item.op === "*" || item.op === "x" ? "multiply" : "add",
+        };
+      }
+      if (itemType === "paren") {
+        return { type: "paren", value: item.value === "(" ? "(" : ")" };
+      }
+      if (itemType === "func") {
+        const func = isFunctionName(item.func) ? item.func : "abs";
+        return {
+          type: "func",
+          func,
+          factor: numericValue(item.factor, 1),
+          threshold: numericValue(item.threshold, 0),
+          children: normalizeRewardValue(Array.isArray(item.children) ? item.children : []),
+        };
+      }
+      if (itemType === "term") {
+        const signal = item.signal || "env_reward";
+        const factor = numericValue(item.factor, 1);
+        const transformFunc = functionForTransform(item.transform || "raw");
+        const term = {
+          type: "term",
+          signal,
+          factor: transformFunc ? 1 : factor,
+          scale: cleanScaleFor(signal, item.scale || defaultScaleFor(signal)),
+        };
+        if (transformFunc) {
+          return { type: "func", func: transformFunc, factor, children: [term] };
+        }
+        return term;
+      }
+      return null;
+    }
+
+    function normalizeRewardValue(value) {
+      const tokens = [];
+      if (!Array.isArray(value)) return tokens;
+      value.forEach((item) => {
+        const token = normalizeSingleRewardToken(item);
+        if (!token) return;
+        if (!item.type && item.signal && tokens.length) {
+          tokens.push({ type: "op", op: item.connector === "multiply" ? "multiply" : "add" });
+        }
+        tokens.push(token);
+      });
+      return tokens;
+    }
+
+    function normalizeActionValue(value) {
+      if (!Array.isArray(value)) return [];
+      return value
+        .map((item) => {
+          const force = typeof item === "object" && item !== null ? item.force : item;
+          const parsed = Number(force);
+          if (!Number.isFinite(parsed)) return null;
+          return { force: Math.max(-30, Math.min(30, parsed)) };
+        })
+        .filter(Boolean);
+    }
+
+    function groupedPool() {
+      return state.pool.reduce((groups, item) => {
+        const group = item.group || "Signals";
+        groups[group] = groups[group] || [];
+        groups[group].push(item);
+        return groups;
+      }, {});
+    }
+
+    function startDrag(event, id) {
+      event.dataTransfer.effectAllowed = "copy";
+      event.dataTransfer.setData("text/plain", id);
+    }
+
+    function tokenFromDragId(id) {
+      if (id === "math:add") return { type: "op", op: "add" };
+      if (id === "math:multiply") return { type: "op", op: "multiply" };
+      if (id === "math:lparen") return { type: "paren", value: "(" };
+      if (id === "math:rparen") return { type: "paren", value: ")" };
+      if (id === "math:abs") return { type: "func", func: "abs", factor: 1, children: [] };
+      if (id === "math:sin") return { type: "func", func: "sin", factor: 1, children: [] };
+      if (id === "math:cos") return { type: "func", func: "cos", factor: 1, children: [] };
+      if (id === "math:min") return { type: "func", func: "min", factor: 1, threshold: 0, children: [] };
+      if (id === "math:max") return { type: "func", func: "max", factor: 1, threshold: 0, children: [] };
+      return {
+        type: "term",
+        signal: id,
+        factor: id === "hit_animal" ? -25 : id === "fell" ? -1 : 1,
+        scale: defaultScaleFor(id),
+      };
+    }
+
+    function actionFromDragId(id) {
+      const item = poolItemFor(id);
+      const fallback = id.includes("left") ? -10 : id.includes("right") ? 10 : 0;
+      return { force: numericValue(item && item.default_force, fallback) };
+    }
+
+    function parsePath(path) {
+      if (!path) return [];
+      return String(path).split(".").filter(Boolean).map((part) => Number(part));
+    }
+
+    function pathToString(path) {
+      return path.join(".");
+    }
+
+    function listAtPath(root, path) {
+      let list = root;
+      path.forEach((index) => {
+        const token = list[index];
+        if (!token || token.type !== "func") return;
+        if (!Array.isArray(token.children)) token.children = [];
+        list = token.children;
+      });
+      return list;
+    }
+
+    function tokenAtPath(root, path) {
+      if (!path.length) return null;
+      const parent = listAtPath(root, path.slice(0, -1));
+      return parent[path[path.length - 1]] || null;
+    }
+
+    function isValueEnd(token) {
+      return token && (token.type === "term" || token.type === "func" || (token.type === "paren" && token.value === ")"));
+    }
+
+    function isValueStart(token) {
+      return token && (token.type === "term" || token.type === "func" || (token.type === "paren" && token.value === "("));
+    }
+
+    function isWrappableValue(token) {
+      return token && (token.type === "term" || token.type === "func");
+    }
+
+    function startsWithPath(path, prefix) {
+      return prefix.length <= path.length && prefix.every((value, index) => value === path[index]);
+    }
+
+    function removeTokenAtPath(root, path) {
+      if (!path.length) return null;
+      const parent = listAtPath(root, path.slice(0, -1));
+      const index = path[path.length - 1];
+      if (index < 0 || index >= parent.length) return null;
+      return parent.splice(index, 1)[0] || null;
+    }
+
+    function samePath(left, right) {
+      return left.length === right.length && left.every((value, index) => value === right[index]);
+    }
+
+    function startMove(event, pathString) {
+      event.stopPropagation();
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("application/x-reward-path", pathString);
+    }
+
+    function dropItem(event, listPath = "", insertAt = "") {
+      event.preventDefault();
+      event.stopPropagation();
+      const id = event.dataTransfer.getData("text/plain");
+      const movePathString = event.dataTransfer.getData("application/x-reward-path");
+      if (!id && !movePathString) return;
+
+      if (state.mode === "observation") {
+        if (!state.value.includes(id)) {
+          state.value = [...state.value, id];
+        }
+      } else if (state.mode === "action") {
+        state.value = [...normalizeActionValue(state.value), actionFromDragId(id)];
+      } else {
+        const tokens = normalizeRewardValue(state.value);
+        const targetPath = parsePath(listPath);
+        let targetList = listAtPath(tokens, targetPath);
+        let targetIndex = insertAt === "" ? targetList.length : Number(insertAt);
+        let nextToken = null;
+
+        if (movePathString) {
+          const sourcePath = parsePath(movePathString);
+          if (startsWithPath(targetPath, sourcePath)) return;
+          const sameList = samePath(sourcePath.slice(0, -1), targetPath);
+          nextToken = removeTokenAtPath(tokens, sourcePath);
+          if (!nextToken) return;
+          if (sameList && sourcePath[sourcePath.length - 1] < targetIndex) {
+            targetIndex -= 1;
+          }
+          targetList = listAtPath(tokens, targetPath);
+        } else {
+          nextToken = tokenFromDragId(id);
+        }
+
+        const copiedFreshFunction = !movePathString && nextToken && nextToken.type === "func";
+        if (copiedFreshFunction && targetIndex < targetList.length && isWrappableValue(targetList[targetIndex])) {
+          nextToken.children = [targetList.splice(targetIndex, 1)[0]];
+          targetList.splice(targetIndex, 0, nextToken);
+          state.value = tokens;
+          render();
+          sendValue();
+          return;
+        }
+        if (
+          copiedFreshFunction
+          && targetIndex === targetList.length
+          && targetList.length === 1
+          && isWrappableValue(targetList[0])
+        ) {
+          nextToken.children = [targetList.splice(0, 1)[0]];
+          targetList.splice(0, 0, nextToken);
+          state.value = tokens;
+          render();
+          sendValue();
+          return;
+        }
+
+        const previous = targetList[targetIndex - 1];
+        if (isValueStart(nextToken) && isValueEnd(previous)) {
+          targetList.splice(targetIndex, 0, { type: "op", op: "add" });
+          targetIndex += 1;
+        }
+        targetList.splice(Math.max(0, Math.min(targetIndex, targetList.length)), 0, nextToken);
+        state.value = tokens;
+      }
+      render();
+      sendValue();
+    }
+
+    function removeAt(index) {
+      state.value = state.value.filter((_, current) => current !== index);
+      render();
+      sendValue();
+    }
+
+    function updateAction(index, value) {
+      const actions = normalizeActionValue(state.value);
+      if (!actions[index]) return;
+      actions[index].force = Math.max(-30, Math.min(30, numericValue(value, 0)));
+      state.value = actions;
+      render(false);
+      sendValue();
+    }
+
+    function removeAtPath(pathString) {
+      const tokens = normalizeRewardValue(state.value);
+      const path = parsePath(pathString);
+      const parent = listAtPath(tokens, path.slice(0, -1));
+      parent.splice(path[path.length - 1], 1);
+      state.value = tokens;
+      render();
+      sendValue();
+    }
+
+    function updateReward(pathString, field, value) {
+      const tokens = normalizeRewardValue(state.value);
+      const term = tokenAtPath(tokens, parsePath(pathString));
+      if (term) {
+        if (field === "factor") {
+          term.factor = numericValue(value, 0);
+        } else if (field === "threshold") {
+          term.threshold = numericValue(value, 0);
+        } else if (field === "op") {
+          term.op = value === "multiply" ? "multiply" : "add";
+        } else {
+          term[field] = value;
+        }
+      }
+      state.value = tokens;
+      render(false);
+      sendValue();
+    }
+
+    function renderPool() {
+      const groups = groupedPool();
+      const mathBlocks = state.mode === "reward" ? `
+        <div class="group">
+          <div class="group-title">Math blocks</div>
+          <div class="chip-grid">
+            <div class="chip" draggable="true" title="Drag into the equation" ondragstart="startDrag(event, 'math:add')">+</div>
+            <div class="chip" draggable="true" title="Drag into the equation" ondragstart="startDrag(event, 'math:multiply')">x</div>
+            <div class="chip" draggable="true" title="Drag into the equation" ondragstart="startDrag(event, 'math:lparen')">(</div>
+            <div class="chip" draggable="true" title="Drag into the equation" ondragstart="startDrag(event, 'math:rparen')">)</div>
+            <div class="chip" draggable="true" title="Drag into the equation" ondragstart="startDrag(event, 'math:abs')">abs(</div>
+            <div class="chip" draggable="true" title="Drag into the equation" ondragstart="startDrag(event, 'math:sin')">sin(</div>
+            <div class="chip" draggable="true" title="Drag into the equation" ondragstart="startDrag(event, 'math:cos')">cos(</div>
+            <div class="chip" draggable="true" title="Drag into the equation" ondragstart="startDrag(event, 'math:min')">min(</div>
+            <div class="chip" draggable="true" title="Drag into the equation" ondragstart="startDrag(event, 'math:max')">max(</div>
+          </div>
+        </div>
+      ` : "";
+      return mathBlocks + Object.entries(groups).map(([group, items]) => `
+        <div class="group">
+          <div class="group-title">${escapeHtml(group)}</div>
+          <div class="chip-grid">
+            ${items.map((item) => `
+              <div
+                class="chip"
+                draggable="true"
+                title="Drag into the canvas"
+                ondragstart="startDrag(event, '${escapeAttr(item.id)}')"
+              >${escapeHtml(item.label)}</div>
+            `).join("")}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderObservationCanvas() {
+      if (!state.value.length) {
+        return `<div class="empty">Drag observations here. The agent can only learn from what lands in this box.</div>`;
+      }
+      return state.value.map((id, index) => `
+        <div class="obs-row">
+          <div class="label">${escapeHtml(labelFor(id))}</div>
+          <button class="remove" onclick="removeAt(${index})">remove</button>
+        </div>
+      `).join("");
+    }
+
+    function renderActionCanvas() {
+      const actions = normalizeActionValue(state.value);
+      if (!actions.length) {
+        return `<div class="empty">Drag force bubbles here. Negative pushes left, positive pushes right, and 0 means no push.</div>`;
+      }
+      return actions.map((action, index) => `
+        <div class="action-row">
+          <div class="label">Force choice ${index + 1}</div>
+          <input
+            type="number"
+            step="0.5"
+            min="-30"
+            max="30"
+            value="${escapeAttr(String(action.force))}"
+            aria-label="Force value"
+            title="Negative pushes left. Positive pushes right. Zero means no push."
+            onchange="updateAction(${index}, this.value)"
+          />
+          <button class="remove" onclick="removeAt(${index})">remove</button>
+        </div>
+      `).join("");
+    }
+
+    function renderRewardCanvas() {
+      const tokens = normalizeRewardValue(state.value);
+      const content = tokens.length ? renderTokenList(tokens, []) : `
+        <div class="empty">Drag signals, +, x, and parentheses here to build reward = ...</div>
+      `;
+      const formula = "reward = " + (tokens.length ? tokens.map(tokenFormulaPart).join(" ") : "...");
+      return `
+        <div
+          class="equation-canvas"
+          data-list-path=""
+          ondragover="event.preventDefault(); this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="this.classList.remove('drag-over'); dropItem(event, this.dataset.listPath)"
+        >${content}</div>
+        <div class="formula">${escapeHtml(formula)}</div>
+      `;
+    }
+
+    function renderTokenList(tokens, path) {
+      return tokens.map((token, index) => renderRewardToken(token, [...path, index])).join("");
+    }
+
+    function renderRewardToken(token, path) {
+      const pathString = pathToString(path);
+      const parentPathString = pathToString(path.slice(0, -1));
+      const index = path[path.length - 1];
+      const dropBeforeAttrs = `
+        ondragover="event.preventDefault(); event.stopPropagation(); this.classList.add('drop-before')"
+        ondragleave="this.classList.remove('drop-before')"
+        ondrop="this.classList.remove('drop-before'); dropItem(event, '${escapeAttr(parentPathString)}', ${index})"
+      `;
+      if (token.type === "op") {
+        return `
+          <div class="equation-op" ${dropBeforeAttrs}>
+            <span class="drag-handle" draggable="true" title="Drag to move" ondragstart="startMove(event, '${escapeAttr(pathString)}')">⋮</span>
+            <select aria-label="Operator" onchange="updateReward('${escapeAttr(pathString)}', 'op', this.value)">
+              <option value="add" ${token.op !== "multiply" ? "selected" : ""}>+</option>
+              <option value="multiply" ${token.op === "multiply" ? "selected" : ""}>x</option>
+            </select>
+            <button class="remove" onclick="removeAtPath('${escapeAttr(pathString)}')">remove</button>
+          </div>
+        `;
+      }
+      if (token.type === "paren") {
+        return `
+          <div class="equation-paren" ${dropBeforeAttrs}>
+            <span class="drag-handle" draggable="true" title="Drag to move" ondragstart="startMove(event, '${escapeAttr(pathString)}')">⋮</span>
+            <span>${escapeHtml(token.value)}</span>
+            <button class="remove" onclick="removeAtPath('${escapeAttr(pathString)}')">remove</button>
+          </div>
+        `;
+      }
+      if (token.type === "func") {
+        const children = Array.isArray(token.children) ? token.children : [];
+        const childContent = children.length
+          ? renderTokenList(children, path)
+          : `<span class="func-empty">drop signal or function here</span>`;
+        const funcLabel = `${token.func}(`;
+        const thresholdControl = ["min", "max"].includes(token.func) ? `
+          <input
+            type="number"
+            step="0.1"
+            value="${escapeAttr(String(token.threshold ?? 0))}"
+            aria-label="Comparison cutoff"
+            title="${escapeAttr(token.func)} compares the nested value against this cutoff"
+            onchange="updateReward('${escapeAttr(pathString)}', 'threshold', this.value)"
+          />
+        ` : `<span class="threshold-spacer"></span>`;
+        return `
+          <div class="equation-func" ${dropBeforeAttrs}>
+            <div class="func-head">
+              <span class="drag-handle" draggable="true" title="Drag to move" ondragstart="startMove(event, '${escapeAttr(pathString)}')">⋮</span>
+              <input
+                type="number"
+                step="0.5"
+                value="${escapeAttr(String(token.factor ?? 1))}"
+                aria-label="Function multiplier"
+                onchange="updateReward('${escapeAttr(pathString)}', 'factor', this.value)"
+              />
+              <span>${escapeHtml(funcLabel)}</span>
+              ${thresholdControl}
+              <button class="remove" onclick="removeAtPath('${escapeAttr(pathString)}')">remove</button>
+            </div>
+            <div
+              class="func-hole"
+              data-list-path="${escapeAttr(pathString)}"
+              ondragover="event.preventDefault(); this.classList.add('drag-over')"
+              ondragleave="this.classList.remove('drag-over')"
+              ondrop="this.classList.remove('drag-over'); dropItem(event, this.dataset.listPath)"
+            >${childContent}</div>
+            <div class="func-close">)</div>
+          </div>
+        `;
+      }
+      const scaleOptions = scaleOptionsFor(token.signal);
+      const scaleControl = scaleOptions.length ? `
+        <select
+          aria-label="Signal scale"
+          title="Scale this signal before reward math"
+          onchange="updateReward('${escapeAttr(pathString)}', 'scale', this.value)"
+        >
+          ${scaleOptions.map(([value, label]) => `
+            <option value="${escapeAttr(value)}" ${cleanScaleFor(token.signal, token.scale) === value ? "selected" : ""}>
+              ${escapeHtml(label)}
+            </option>
+          `).join("")}
+        </select>
+      ` : `<div class="scale-spacer"></div>`;
+      return `
+        <div class="equation-term" ${dropBeforeAttrs}>
+          <span class="drag-handle" draggable="true" title="Drag to move" ondragstart="startMove(event, '${escapeAttr(pathString)}')">⋮</span>
+          <input
+            type="number"
+            step="0.5"
+            value="${escapeAttr(String(token.factor ?? 1))}"
+            aria-label="Multiplier"
+            onchange="updateReward('${escapeAttr(pathString)}', 'factor', this.value)"
+          />
+          <div class="label">x ${escapeHtml(displayTerm(token))}</div>
+          ${scaleControl}
+          <button class="remove" onclick="removeAtPath('${escapeAttr(pathString)}')">remove</button>
+        </div>
+      `;
+    }
+
+    function termFormulaLabel(token) {
+      const scaleOptions = scaleOptionsFor(token.signal);
+      if (!scaleOptions.length) return displayTerm(token);
+      const scale = cleanScaleFor(token.signal, token.scale);
+      const label = scaleOptions.find(([value]) => value === scale)?.[1] || scale;
+      return `${displayTerm(token)} ${label}`;
+    }
+
+    function tokenFormulaPart(token) {
+      if (token.type === "op") return token.op === "multiply" ? "x" : "+";
+      if (token.type === "paren") return token.value;
+      if (token.type === "func") {
+        const childFormula = Array.isArray(token.children) && token.children.length
+          ? token.children.map(tokenFormulaPart).join(" ")
+          : "...";
+        if (["min", "max"].includes(token.func)) {
+          return `${Number(token.factor || 0).toFixed(2)} * ${token.func}(${childFormula}, ${Number(token.threshold || 0).toFixed(2)})`;
+        }
+        return `${Number(token.factor || 0).toFixed(2)} * ${token.func}(${childFormula})`;
+      }
+      return `${Number(token.factor || 0).toFixed(2)} * ${termFormulaLabel(token)}`;
+    }
+
+    function render(resetFocus = true) {
+      const root = document.getElementById("root");
+      root.innerHTML = `
+        <div class="wrap">
+          <div class="title">
+            <span>${escapeHtml(state.title)}</span>
+            <span class="hint">${state.mode === "action" ? "Drag force bubbles into the canvas" : "Drag bubbles into the canvas"}</span>
+          </div>
+          <div class="${state.mode === "reward" ? "builder reward-builder" : "builder"}">
+            <section class="panel">
+              <div class="panel-head">Pool</div>
+              <div class="pool">${renderPool()}</div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">${
+                state.mode === "reward"
+                  ? "Reward function"
+                  : state.mode === "action"
+                    ? "Agent action canvas"
+                    : "Agent observation canvas"
+              }</div>
+              <div
+                class="canvas"
+                ondragover="event.preventDefault(); this.classList.add('drag-over')"
+                ondragleave="this.classList.remove('drag-over')"
+                ondrop="this.classList.remove('drag-over'); dropItem(event)"
+              >
+                ${
+                  state.mode === "reward"
+                    ? renderRewardCanvas()
+                    : state.mode === "action"
+                      ? renderActionCanvas()
+                      : renderObservationCanvas()
+                }
+              </div>
+            </section>
+          </div>
+        </div>
+      `;
+      requestAnimationFrame(setHeight);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replaceAll("`", "&#096;");
+    }
+
+    window.addEventListener("message", (event) => {
+      const data = event.data || {};
+      if (data.type !== "streamlit:render") return;
+      const args = data.args || {};
+      const incomingResetId = String(args.reset_id || "");
+      state.mode = args.mode || "reward";
+      state.title = args.title || "Builder";
+      state.pool = Array.isArray(args.pool) ? args.pool : [];
+      state.height = Number(args.height || 360);
+      if (!state.initialized || incomingResetId !== state.resetId) {
+        // Python (Streamlit session state) is the single source of truth for
+        // the value. Always take what it sends so the box never holds stale
+        // bubbles after a reset/mission change.
+        const incomingValue = Array.isArray(args.value) ? args.value : [];
+        state.value = state.mode === "reward"
+          ? normalizeRewardValue(incomingValue)
+          : state.mode === "action"
+            ? normalizeActionValue(incomingValue)
+            : incomingValue;
+        state.initialized = true;
+        state.resetId = incomingResetId;
+      }
+      render();
+      // Lock the frame height on every (re)render, including the initial mount,
+      // so the iframe is already at full height before the first drag.
+      setHeight();
+
+      // Register the widget's value with Streamlit on first mount so the first
+      // user drag is a value *update*, not the "first ever value" event that
+      // makes Streamlit re-instantiate the iframe (the page flicker / blank
+      // reload on the first drop). Fire once per iframe instance.
+      if (!state.valueRegistered) {
+        state.valueRegistered = true;
+        streamlitMessage("streamlit:setComponentValue", {
+          value: state.value,
+          dataType: "json",
+        });
+      }
+    });
+
+    ready();
+  </script>
+</body>
+</html>

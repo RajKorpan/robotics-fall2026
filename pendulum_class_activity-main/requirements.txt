@@ -1,0 +1,7 @@
+streamlit>=1.58
+gymnasium[classic-control]
+numpy
+pandas
+matplotlib
+pillow
+torch

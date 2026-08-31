@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel: #f8fafc;
+      --border: #d0d5dd;
+      --ink: #182230;
+      --muted: #475467;
+      --j1: #0d9488;        /* Joint 1 / shoulder — site teal  */
+      --j2: #e8830c;        /* Joint 2 / elbow    — site amber */
+      --green: #12b76a;
+      --red: #f04438;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+    }
+    #root { padding: 4px; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 258px;
+      gap: 14px;
+      max-width: 980px;
+    }
+    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+
+    .viz-panel { display: flex; flex-direction: column; gap: 10px; }
+    .canvas-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 6px;
+    }
+    canvas { display: block; width: 100%; height: auto; border-radius: 8px; background: #ffffff; }
+    canvas.aim { cursor: crosshair; }
+
+    .side { display: flex; flex-direction: column; gap: 10px; }
+
+    /* Mode bar */
+    .mode-bar { display: flex; align-items: center; gap: 8px; }
+    .mode-chip {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      font-weight: 800;
+      color: #ffffff;
+      background: var(--j1);
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+    .mode-chip.test { background: var(--j2); }
+    .mode-btn { flex: 1; }
+
+    /* Per-joint control cards */
+    .joint-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--j1);
+      border-radius: 12px;
+      padding: 12px 12px 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .joint-card.j2 { border-top-color: var(--j2); }
+    .jc-head { display: flex; align-items: center; gap: 7px; }
+    .jc-swatch { width: 11px; height: 11px; border-radius: 3px; background: var(--j1); flex: none; }
+    .joint-card.j2 .jc-swatch { background: var(--j2); }
+    .jc-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 800; }
+    .jc-err { margin-left: auto; font-size: 0.78rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
+
+    .slider-row { display: flex; flex-direction: column; gap: 3px; }
+    .slider-row label { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+    .slider-row label span { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 700; }
+    .slider-row input[type=range] {
+      -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px; background: var(--border); outline: none;
+    }
+    .slider-row input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%;
+      background: var(--j1); cursor: pointer; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .joint-card.j2 input[type=range]::-webkit-slider-thumb { background: var(--j2); }
+    .slider-row input[type=range]::-moz-range-thumb { width: 15px; height: 15px; border-radius: 50%; background: var(--j1); cursor: pointer; border: 2px solid #fff; }
+    .joint-card.j2 input[type=range]::-moz-range-thumb { background: var(--j2); }
+    .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .sep { border: none; border-top: 1px solid var(--border); margin: 1px 0; }
+
+    .actions-card {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+      padding: 12px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .actions-card h3 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 800; }
+
+    .btn-row { display: flex; gap: 6px; }
+    .btn {
+      flex: 1; padding: 7px 0; border: 1px solid var(--border); border-radius: 7px;
+      background: var(--bg); color: var(--ink); font-size: 0.78rem; font-weight: 700; cursor: pointer; text-align: center;
+    }
+    .btn:hover:not(:disabled) { background: #eef2f6; }
+    .btn.active { background: var(--j1); border-color: var(--j1); color: #ffffff; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* Readiness meter */
+    .ready-row { display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+    .ready-row span:last-child { color: var(--ink); font-variant-numeric: tabular-nums; }
+    .ready-bar { height: 7px; border-radius: 4px; background: var(--border); overflow: hidden; }
+    .ready-fill { height: 100%; width: 0%; background: var(--j1); transition: width 0.25s; }
+    .hint { font-size: 0.76rem; line-height: 1.4; color: var(--muted); }
+
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .metric-box { background: var(--bg); border: 1px solid var(--border); border-radius: 7px; padding: 6px 4px; text-align: center; }
+    .metric-box .mv { font-size: 0.95rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
+    .metric-box .ml { font-size: 0.64rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+  </style>
+</head>
+<body>
+<div id="root">
+  <div class="layout">
+    <div class="viz-panel">
+      <div class="canvas-card"><canvas id="arm-canvas" width="500" height="360"></canvas></div>
+      <div class="canvas-card"><canvas id="graph-canvas" width="500" height="180"></canvas></div>
+    </div>
+
+    <div class="side">
+      <div class="mode-bar">
+        <span class="mode-chip" id="mode-chip">Tuning</span>
+        <button class="btn mode-btn" id="btn-mode" disabled>Enter test mode</button>
+      </div>
+
+      <!-- Joint 1 -->
+      <div class="joint-card j1">
+        <div class="jc-head">
+          <span class="jc-swatch"></span>
+          <span class="jc-title">Joint 1 &middot; Shoulder</span>
+          <span class="jc-err" id="j1-err">--</span>
+        </div>
+        <div class="grid3">
+          <div class="slider-row"><label>Kp <span id="kp1-val">6.0</span></label><input type="range" id="kp1" min="0" max="16" step="0.1" value="6.0"></div>
+          <div class="slider-row"><label>Ki <span id="ki1-val">0.9</span></label><input type="range" id="ki1" min="0" max="4" step="0.05" value="0.9"></div>
+          <div class="slider-row"><label>Kd <span id="kd1-val">1.3</span></label><input type="range" id="kd1" min="0" max="6" step="0.05" value="1.3"></div>
+        </div>
+      </div>
+
+      <!-- Joint 2 -->
+      <div class="joint-card j2">
+        <div class="jc-head">
+          <span class="jc-swatch"></span>
+          <span class="jc-title">Joint 2 &middot; Elbow</span>
+          <span class="jc-err" id="j2-err">--</span>
+        </div>
+        <div class="grid3">
+          <div class="slider-row"><label>Kp <span id="kp2-val">6.0</span></label><input type="range" id="kp2" min="0" max="16" step="0.1" value="6.0"></div>
+          <div class="slider-row"><label>Ki <span id="ki2-val">0.9</span></label><input type="range" id="ki2" min="0" max="4" step="0.05" value="0.9"></div>
+          <div class="slider-row"><label>Kd <span id="kd2-val">1.2</span></label><input type="range" id="kd2" min="0" max="6" step="0.05" value="1.2"></div>
+        </div>
+      </div>
+
+      <div class="actions-card">
+        <div class="btn-row">
+          <button class="btn" id="btn-gravff">Gravity comp</button>
+          <button class="btn" id="btn-reset">Reset arm</button>
+        </div>
+
+        <!-- Tuning-only -->
+        <div id="tune-extra" style="display:flex; flex-direction:column; gap:8px;">
+          <hr class="sep">
+          <div class="ready-row"><span>Poses nailed</span><span id="ready-count">0 / 3</span></div>
+          <div class="ready-bar"><div class="ready-fill" id="ready-fill"></div></div>
+          <div class="ready-row"><span>Phase</span><span id="phase-label">Moving to pose…</span></div>
+          <div class="hint">Each target plays in two beats: the arm <b>moves</b> to the pose, then <b>holds</b> so you can see how cleanly it settled. Tune both joints until it settles during the hold &mdash; hit 3 poses in a row to unlock test mode.</div>
+          <hr class="sep">
+          <div class="btn-row">
+            <button class="btn" id="btn-perturb">Perturb</button>
+            <button class="btn" id="btn-sloppy">Sloppy</button>
+          </div>
+          <div class="btn-row">
+            <button class="btn" id="btn-tuned">Tuned</button>
+            <button class="btn" id="btn-stiff">Stiff</button>
+          </div>
+        </div>
+
+        <!-- Test-only -->
+        <div id="test-extra" style="display:none; flex-direction:column; gap:8px;">
+          <hr class="sep">
+          <div class="hint">Click or drag anywhere in the plane to set a target <b>(x, y)</b>. The origin <b>(0, 0)</b> is the base of Joint 1. Can your tuning reach it?</div>
+          <div class="metrics">
+            <div class="metric-box"><div class="mv" id="t-x">0</div><div class="ml">x</div></div>
+            <div class="metric-box"><div class="mv" id="t-y">0</div><div class="ml">y</div></div>
+            <div class="metric-box"><div class="mv" id="t-gap">--</div><div class="ml">tip gap</div></div>
+            <div class="metric-box"><div class="mv" id="t-status">--</div><div class="ml">status</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const armCanvas = document.getElementById("arm-canvas");
+  const graphCanvas = document.getElementById("graph-canvas");
+  const armCtx = armCanvas.getContext("2d");
+  const graphCtx = graphCanvas.getContext("2d");
+  const $ = id => document.getElementById(id);
+
+  const C_J1 = "#0d9488", C_J2 = "#e8830c";
+  const C_INK = "#182230", C_GREEN = "#12b76a", C_RED = "#f04438";
+  const R2D = 180 / Math.PI, D2R = Math.PI / 180;
+
+  // --- Geometry / physics ---
+  const L1 = 118, L2 = 96;
+  const G1 = 3.6, G2 = 2.2;
+  const I1 = 1.15, I2 = 0.6;
+  const D1 = 0.35, D2 = 0.28;
+  const COUPLE = 0.16;
+  const MAX_TORQUE = 24;
+  const DT = 1 / 60;
+  const GRAPH_POINTS = 300;
+
+  // th1 = shoulder abs angle (from +x, CCW); th2 = elbow angle relative to link 1.
+  let th1 = 0, w1 = 0, iAcc1 = 0, prevE1 = 0, tgt1 = 90 * D2R;
+  let th2 = 0, w2 = 0, iAcc2 = 0, prevE2 = 0, tgt2 = -60 * D2R;
+
+  let kp1 = 6.0, ki1 = 0.9, kd1 = 1.3;
+  let kp2 = 6.0, ki2 = 0.9, kd2 = 1.2;
+  let gravComp = false;
+
+  let hist1 = [], histT1 = [], hist2 = [], histT2 = [];
+  const recordingCanvas = document.createElement("canvas");
+  recordingCanvas.width = 320;
+  recordingCanvas.height = Math.round(armCanvas.height * recordingCanvas.width / armCanvas.width);
+  const recordingCtx = recordingCanvas.getContext("2d");
+  let recordingFrames = [];
+  let recordingFrameCount = 0;
+  let captureEvery = 15;
+  const MAX_RECORDING_FRAMES = 36;
+
+  // Modes
+  let mode = "tune";            // "tune" | "test"
+  let ready = false;
+
+  // Given (auto-cycled) poses for tuning: [shoulder deg, elbow deg]
+  const POSES = [[90, -60], [45, 90], [140, -100], [90, -130], [25, 130], [160, -50], [70, 40]];
+  let poseIdx = 0, cycleTimer = 0;
+  // Each pose plays in two phases: MOVE (arm drives to the target) then HOLD
+  // (target stays put so the arm visibly settles and pauses before the next one).
+  const MOVE_TIME = 2.6;        // seconds spent driving toward the pose
+  const HOLD_TIME = 1.3;        // seconds the pose is held so the motion is readable
+  const CYCLE_INTERVAL = MOVE_TIME + HOLD_TIME;
+  let posePhase = "move";       // "move" | "hold"
+  const SETTLE_TOL = 10;        // degrees
+  const NEED = 3;
+  let posesHit = 0;
+
+  // Test-mode target in world space (px, origin at base, y up)
+  let tx = 120, ty = 120;
+
+  // --- Slider wiring ---
+  function bind(id, valId, setter) {
+    const el = $(id), valEl = $(valId);
+    el.addEventListener("input", () => { const v = parseFloat(el.value); setter(v); valEl.textContent = v.toFixed(1); });
+  }
+  bind("kp1", "kp1-val", v => { kp1 = v; });
+  bind("ki1", "ki1-val", v => { ki1 = v; iAcc1 = 0; });
+  bind("kd1", "kd1-val", v => { kd1 = v; });
+  bind("kp2", "kp2-val", v => { kp2 = v; });
+  bind("ki2", "ki2-val", v => { ki2 = v; iAcc2 = 0; });
+  bind("kd2", "kd2-val", v => { kd2 = v; });
+
+  function setGains(p, i, d) {
+    kp1 = kp2 = p; ki1 = ki2 = i; kd1 = kd2 = d;
+    for (const j of ["1", "2"]) {
+      $("kp" + j).value = p; $("kp" + j + "-val").textContent = p.toFixed(1);
+      $("ki" + j).value = i; $("ki" + j + "-val").textContent = i.toFixed(1);
+      $("kd" + j).value = d; $("kd" + j + "-val").textContent = d.toFixed(1);
+    }
+    iAcc1 = iAcc2 = 0;
+  }
+
+  $("btn-gravff").addEventListener("click", () => { gravComp = !gravComp; $("btn-gravff").classList.toggle("active", gravComp); });
+  $("btn-perturb").addEventListener("click", () => { w1 += (Math.random() - 0.5) * 9; w2 += (Math.random() - 0.5) * 11; });
+  $("btn-reset").addEventListener("click", resetArm);
+  $("btn-sloppy").addEventListener("click", () => setGains(2.5, 0, 0));
+  $("btn-tuned").addEventListener("click", () => setGains(6.0, 0.9, 1.3));
+  $("btn-stiff").addEventListener("click", () => setGains(14.0, 0.3, 4.5));
+
+  function resetArm() {
+    th1 = 0; w1 = 0; iAcc1 = 0; prevE1 = 0;
+    th2 = 0; w2 = 0; iAcc2 = 0; prevE2 = 0;
+    hist1 = []; histT1 = []; hist2 = []; histT2 = [];
+  }
+
+  // --- Mode switching ---
+  $("btn-mode").addEventListener("click", () => {
+    if (mode === "tune") { if (!ready) return; enterTest(); }
+    else enterTune();
+  });
+
+  function enterTest() {
+    mode = "test";
+    // Aim at current tip so nothing jumps.
+    tx = L1 * Math.cos(th1) + L2 * Math.cos(th1 + th2);
+    ty = L1 * Math.sin(th1) + L2 * Math.sin(th1 + th2);
+    aimAt(tx, ty);
+    $("tune-extra").style.display = "none";
+    $("test-extra").style.display = "flex";
+    $("mode-chip").textContent = "Test"; $("mode-chip").classList.add("test");
+    $("btn-mode").textContent = "Back to tuning"; $("btn-mode").disabled = false;
+    armCanvas.classList.add("aim");
+  }
+
+  function enterTune() {
+    mode = "tune";
+    $("tune-extra").style.display = "flex";
+    $("test-extra").style.display = "none";
+    $("mode-chip").textContent = "Tuning"; $("mode-chip").classList.remove("test");
+    $("btn-mode").textContent = "Enter test mode"; $("btn-mode").disabled = !ready;
+    armCanvas.classList.remove("aim");
+  }
+
+  function updateReady() {
+    $("ready-count").textContent = Math.min(posesHit, NEED) + " / " + NEED;
+    $("ready-fill").style.width = Math.min(100, posesHit / NEED * 100) + "%";
+    if (posesHit >= NEED && !ready) {
+      ready = true;
+      if (mode === "tune") $("btn-mode").disabled = false;
+      captureRecordingFrame();
+      sendActivityResult();
+    }
+  }
+
+  function captureRecordingFrame() {
+    if (!recordingCtx) return;
+    if (recordingFrames.length >= MAX_RECORDING_FRAMES) {
+      recordingFrames = recordingFrames.filter((_, index) => index % 2 === 0);
+      captureEvery *= 2;
+    }
+    recordingCtx.drawImage(armCanvas, 0, 0, recordingCanvas.width, recordingCanvas.height);
+    recordingFrames.push(recordingCanvas.toDataURL("image/jpeg", 0.62));
+  }
+
+  function sendActivityResult() {
+    stMsg("streamlit:setComponentValue", {
+      value: {
+        activityComplete: ready,
+        params: { kp1, ki1, kd1, kp2, ki2, kd2, gravityCompensation: gravComp },
+        metrics: { posesHeld: Math.min(posesHit, NEED), posesRequired: NEED },
+        recording_frames: recordingFrames,
+        recording_frame_duration_ms: Math.round((1000 / 60) * captureEvery),
+      },
+      dataType: "json",
+    });
+  }
+
+  // --- Inverse kinematics: world point -> joint targets ---
+  function aimAt(wx, wy) {
+    const Rmax = L1 + L2 - 0.5, Rmin = Math.abs(L1 - L2) + 0.5;
+    let r = Math.hypot(wx, wy);
+    const reachable = r <= Rmax + 0.5 && r >= Rmin - 0.5;
+    r = Math.max(Rmin, Math.min(Rmax, r));
+    const ang = Math.atan2(wy, wx);
+    const px = Math.cos(ang) * r, py = Math.sin(ang) * r;      // clamped target
+    let c2 = (r * r - L1 * L1 - L2 * L2) / (2 * L1 * L2);
+    c2 = Math.max(-1, Math.min(1, c2));
+    const s2 = Math.sqrt(1 - c2 * c2);
+    const solA = Math.atan2(s2, c2), solB = Math.atan2(-s2, c2);
+    // Pick elbow config closest to current, so motion is smooth.
+    const th2s = Math.abs(wrap(solA - th2)) <= Math.abs(wrap(solB - th2)) ? solA : solB;
+    const k1 = L1 + L2 * Math.cos(th2s), k2 = L2 * Math.sin(th2s);
+    const th1s = Math.atan2(py, px) - Math.atan2(k2, k1);
+    tgt1 = th1s; tgt2 = th2s; iAcc1 = 0; iAcc2 = 0;
+    tx = wx; ty = wy;
+    $("t-x").textContent = Math.round(wx);
+    $("t-y").textContent = Math.round(wy);
+    $("t-status").textContent = reachable ? "in reach" : "too far";
+    $("t-status").style.color = reachable ? C_GREEN : C_RED;
+  }
+
+  // Canvas base (must match drawArm)
+  function base() { return { cx: armCanvas.width * 0.5, cy: armCanvas.height * 0.6 }; }
+
+  function canvasToWorld(ev) {
+    const rect = armCanvas.getBoundingClientRect();
+    const sx = armCanvas.width / rect.width, sy = armCanvas.height / rect.height;
+    const px = (ev.clientX - rect.left) * sx, py = (ev.clientY - rect.top) * sy;
+    const b = base();
+    return { wx: px - b.cx, wy: -(py - b.cy) };
+  }
+
+  let dragging = false;
+  armCanvas.addEventListener("pointerdown", ev => {
+    if (mode !== "test") return;
+    dragging = true; armCanvas.setPointerCapture(ev.pointerId);
+    const p = canvasToWorld(ev); aimAt(p.wx, p.wy); ev.preventDefault();
+  });
+  armCanvas.addEventListener("pointermove", ev => {
+    if (mode !== "test" || !dragging) return;
+    const p = canvasToWorld(ev); aimAt(p.wx, p.wy);
+  });
+  armCanvas.addEventListener("pointerup", () => { dragging = false; });
+
+  function wrap(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
+
+  // --- Physics ---
+  function step() {
+    if (mode === "tune") {
+      cycleTimer += DT;
+      // Phase transition: MOVE -> HOLD once the drive window elapses.
+      if (posePhase === "move" && cycleTimer >= MOVE_TIME) {
+        posePhase = "hold";
+      }
+      if (cycleTimer >= CYCLE_INTERVAL) {
+        // Score at the end of the HOLD phase, when the arm has had time to settle.
+        const settle = Math.max(Math.abs(wrap(tgt1 - th1)), Math.abs(wrap(tgt2 - th2))) * R2D;
+        posesHit = settle < SETTLE_TOL ? posesHit + 1 : 0;
+        updateReady();
+        cycleTimer = 0;
+        posePhase = "move";
+        poseIdx = (poseIdx + 1) % POSES.length;
+        tgt1 = POSES[poseIdx][0] * D2R; tgt2 = POSES[poseIdx][1] * D2R;
+        iAcc1 = 0; iAcc2 = 0;
+      }
+      const pl = $("phase-label");
+      if (pl) {
+        if (posePhase === "hold") {
+          const settleNow = Math.max(Math.abs(wrap(tgt1 - th1)), Math.abs(wrap(tgt2 - th2))) * R2D;
+          pl.textContent = settleNow < SETTLE_TOL ? "Holding — settled ✓" : "Holding — still off";
+          pl.style.color = settleNow < SETTLE_TOL ? C_GREEN : C_RED;
+        } else {
+          pl.textContent = "Moving to pose…";
+          pl.style.color = C_INK;
+        }
+      }
+    }
+
+    const abs1 = th1, abs2 = th1 + th2;
+    const grav1 = -(G1 * Math.cos(abs1) + G2 * Math.cos(abs2));
+    const grav2 = -(G2 * Math.cos(abs2));
+
+    const e1 = wrap(tgt1 - th1);
+    iAcc1 = Math.max(-14, Math.min(14, iAcc1 + e1 * DT));
+    const d1 = (e1 - prevE1) / DT; prevE1 = e1;
+    let u1 = kp1 * e1 + ki1 * iAcc1 + kd1 * d1;
+    if (gravComp) u1 -= grav1;
+    u1 = Math.max(-MAX_TORQUE, Math.min(MAX_TORQUE, u1));
+
+    const e2 = wrap(tgt2 - th2);
+    iAcc2 = Math.max(-14, Math.min(14, iAcc2 + e2 * DT));
+    const d2 = (e2 - prevE2) / DT; prevE2 = e2;
+    let u2 = kp2 * e2 + ki2 * iAcc2 + kd2 * d2;
+    if (gravComp) u2 -= grav2;
+    u2 = Math.max(-MAX_TORQUE, Math.min(MAX_TORQUE, u2));
+
+    const acc1 = (u1 + grav1 - D1 * w1) / I1;
+    const acc2 = (u2 + grav2 - D2 * w2 - COUPLE * acc1) / I2;
+    w1 += acc1 * DT; th1 += w1 * DT;
+    w2 += acc2 * DT; th2 += w2 * DT;
+
+    hist1.push(th1 * R2D); histT1.push(tgt1 * R2D);
+    hist2.push(th2 * R2D); histT2.push(tgt2 * R2D);
+    if (hist1.length > GRAPH_POINTS) { hist1.shift(); histT1.shift(); hist2.shift(); histT2.shift(); }
+
+    setErr("j1-err", e1 * R2D);
+    setErr("j2-err", e2 * R2D);
+
+    if (mode === "test") {
+      const tipx = L1 * Math.cos(th1) + L2 * Math.cos(th1 + th2);
+      const tipy = L1 * Math.sin(th1) + L2 * Math.sin(th1 + th2);
+      const gap = Math.hypot(tipx - tx, tipy - ty);
+      $("t-gap").textContent = Math.round(gap) + "px";
+      $("t-gap").style.color = gap < 8 ? C_GREEN : (gap > 40 ? C_RED : C_INK);
+    }
+  }
+
+  function setErr(id, deg) {
+    const el = $(id);
+    el.textContent = (deg >= 0 ? "+" : "") + deg.toFixed(1) + "°";
+    const a = Math.abs(deg);
+    el.style.color = a < 3 ? C_GREEN : (a > 30 ? C_RED : C_INK);
+  }
+
+  // --- Draw arm ---
+  function drawArm() {
+    const W = armCanvas.width, H = armCanvas.height;
+    const { cx, cy } = base();
+    armCtx.clearRect(0, 0, W, H);
+    armCtx.fillStyle = "#ffffff"; armCtx.fillRect(0, 0, W, H);
+
+    armCtx.strokeStyle = "rgba(24,34,48,0.05)"; armCtx.lineWidth = 0.5;
+    for (let i = 0; i < W; i += 40) { armCtx.beginPath(); armCtx.moveTo(i, 0); armCtx.lineTo(i, H); armCtx.stroke(); }
+    for (let i = 0; i < H; i += 40) { armCtx.beginPath(); armCtx.moveTo(0, i); armCtx.lineTo(W, i); armCtx.stroke(); }
+
+    if (mode === "test") drawWorkspace(cx, cy);
+
+    // Target pose: bold dashed links with labeled target joints.
+    const a1 = -tgt1, a2 = -(tgt1 + tgt2);
+    const g1x = cx + L1 * Math.cos(a1), g1y = cy + L1 * Math.sin(a1);
+    const g2x = g1x + L2 * Math.cos(a2), g2y = g1y + L2 * Math.sin(a2);
+    armCtx.lineCap = "round";
+    armCtx.setLineDash([12, 7]);
+    armCtx.strokeStyle = "rgba(13,148,136,0.58)"; armCtx.lineWidth = 9;
+    armCtx.beginPath(); armCtx.moveTo(cx, cy); armCtx.lineTo(g1x, g1y); armCtx.stroke();
+    armCtx.strokeStyle = "rgba(232,131,12,0.62)"; armCtx.lineWidth = 7;
+    armCtx.beginPath(); armCtx.moveTo(g1x, g1y); armCtx.lineTo(g2x, g2y); armCtx.stroke();
+    armCtx.setLineDash([]);
+    drawTargetMarker(g1x, g1y, C_J1, "J1 target", 12, -14);
+    drawTargetMarker(g2x, g2y, C_J2, "J2 target", 12, 16);
+
+    // Actual arm
+    const b1 = -th1, b2 = -(th1 + th2);
+    const j1x = cx + L1 * Math.cos(b1), j1y = cy + L1 * Math.sin(b1);
+    const j2x = j1x + L2 * Math.cos(b2), j2y = j1y + L2 * Math.sin(b2);
+    armCtx.strokeStyle = C_J1; armCtx.lineWidth = 9;
+    armCtx.beginPath(); armCtx.moveTo(cx, cy); armCtx.lineTo(j1x, j1y); armCtx.stroke();
+    armCtx.strokeStyle = C_J2; armCtx.lineWidth = 6.5;
+    armCtx.beginPath(); armCtx.moveTo(j1x, j1y); armCtx.lineTo(j2x, j2y); armCtx.stroke();
+
+    drawJoint(cx, cy, 11, C_J1, "rgba(13,148,136,0.22)");
+    drawJoint(j1x, j1y, 8, C_J2, "rgba(232,131,12,0.22)");
+    armCtx.beginPath(); armCtx.arc(j2x, j2y, 6, 0, Math.PI * 2);
+    armCtx.fillStyle = "#ffffff"; armCtx.fill();
+    armCtx.strokeStyle = C_J2; armCtx.lineWidth = 2; armCtx.stroke();
+
+    armCtx.fillStyle = "rgba(24,34,48,0.10)"; armCtx.fillRect(cx - 26, cy + 11, 52, 8);
+
+    // Gravity arrow
+    armCtx.strokeStyle = "rgba(24,34,48,0.28)"; armCtx.lineWidth = 1.5;
+    armCtx.beginPath();
+    armCtx.moveTo(W - 30, 26); armCtx.lineTo(W - 30, 56);
+    armCtx.moveTo(W - 35, 50); armCtx.lineTo(W - 30, 58); armCtx.lineTo(W - 25, 50);
+    armCtx.stroke();
+    armCtx.fillStyle = "rgba(24,34,48,0.4)"; armCtx.font = "600 10px 'Segoe UI', sans-serif";
+    armCtx.textAlign = "right"; armCtx.fillText(gravComp ? "g (compensated)" : "g", W - 40, 44);
+    armCtx.textAlign = "left";
+
+    armCtx.font = "700 11px 'Segoe UI', sans-serif";
+    armCtx.fillStyle = C_J1; armCtx.fillText("Joint 1 · shoulder", 10, 18);
+    armCtx.fillStyle = C_J2; armCtx.fillText("Joint 2 · elbow", 10, 34);
+    drawTargetLegend(W);
+
+    // Hold-phase badge: makes the deliberate pause on each pose obvious.
+    if (mode === "tune" && posePhase === "hold") {
+      const settleNow = Math.max(Math.abs(wrap(tgt1 - th1)), Math.abs(wrap(tgt2 - th2))) * R2D;
+      const settled = settleNow < SETTLE_TOL;
+      const label = settled ? "HOLDING ✓" : "HOLDING";
+      armCtx.save();
+      armCtx.font = "800 12px 'Segoe UI', sans-serif";
+      const tw = armCtx.measureText(label).width;
+      const bx = W * 0.5 - (tw + 20) / 2, by = H - 26;
+      armCtx.fillStyle = settled ? "rgba(18,183,106,0.14)" : "rgba(24,34,48,0.08)";
+      armCtx.strokeStyle = settled ? C_GREEN : "rgba(24,34,48,0.35)";
+      armCtx.lineWidth = 1.4;
+      roundRect(armCtx, bx, by, tw + 20, 20, 6);
+      armCtx.fill(); armCtx.stroke();
+      armCtx.fillStyle = settled ? "#0a7a48" : C_INK;
+      armCtx.textAlign = "left"; armCtx.textBaseline = "middle";
+      armCtx.fillText(label, bx + 10, by + 10);
+      armCtx.restore();
+    }
+  }
+
+  function drawTargetMarker(x, y, color, label, dx, dy) {
+    armCtx.save();
+    armCtx.strokeStyle = color;
+    armCtx.lineWidth = 2.4;
+    armCtx.setLineDash([4, 3]);
+    armCtx.beginPath(); armCtx.arc(x, y, 13, 0, Math.PI * 2); armCtx.stroke();
+    armCtx.setLineDash([]);
+    armCtx.beginPath(); armCtx.arc(x, y, 4, 0, Math.PI * 2);
+    armCtx.fillStyle = "#ffffff"; armCtx.fill();
+    armCtx.strokeStyle = color; armCtx.stroke();
+
+    const lx = x + dx, ly = y + dy;
+    armCtx.font = "800 10px 'Segoe UI', sans-serif";
+    const tw = armCtx.measureText(label).width;
+    armCtx.fillStyle = "rgba(255,255,255,0.92)";
+    armCtx.strokeStyle = "rgba(24,34,48,0.16)";
+    armCtx.lineWidth = 1;
+    roundRect(armCtx, lx - 4, ly - 9, tw + 8, 17, 5);
+    armCtx.fill(); armCtx.stroke();
+    armCtx.fillStyle = color;
+    armCtx.textAlign = "left";
+    armCtx.textBaseline = "middle";
+    armCtx.fillText(label, lx, ly);
+    armCtx.restore();
+  }
+
+  function drawTargetLegend(W) {
+    armCtx.save();
+    const x = W - 136, y = 12;
+    armCtx.fillStyle = "rgba(255,255,255,0.88)";
+    armCtx.strokeStyle = "rgba(24,34,48,0.12)";
+    armCtx.lineWidth = 1;
+    roundRect(armCtx, x, y, 122, 45, 7);
+    armCtx.fill(); armCtx.stroke();
+    armCtx.font = "700 10px 'Segoe UI', sans-serif";
+    armCtx.textAlign = "left";
+    armCtx.textBaseline = "middle";
+    armCtx.strokeStyle = "rgba(24,34,48,0.7)";
+    armCtx.lineWidth = 3;
+    armCtx.setLineDash([]);
+    armCtx.beginPath(); armCtx.moveTo(x + 10, y + 15); armCtx.lineTo(x + 34, y + 15); armCtx.stroke();
+    armCtx.fillStyle = "rgba(24,34,48,0.72)"; armCtx.fillText("current", x + 42, y + 15);
+    armCtx.strokeStyle = C_J2;
+    armCtx.setLineDash([7, 4]);
+    armCtx.beginPath(); armCtx.moveTo(x + 10, y + 31); armCtx.lineTo(x + 34, y + 31); armCtx.stroke();
+    armCtx.setLineDash([]);
+    armCtx.fillStyle = C_J2; armCtx.fillText("target", x + 42, y + 31);
+    armCtx.restore();
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function drawWorkspace(cx, cy) {
+    // Axes through the base (origin of the x-y plane)
+    armCtx.strokeStyle = "rgba(24,34,48,0.18)"; armCtx.lineWidth = 1;
+    armCtx.setLineDash([]);
+    armCtx.beginPath(); armCtx.moveTo(0, cy); armCtx.lineTo(armCanvas.width, cy); armCtx.stroke();
+    armCtx.beginPath(); armCtx.moveTo(cx, 0); armCtx.lineTo(cx, armCanvas.height); armCtx.stroke();
+    armCtx.fillStyle = "rgba(24,34,48,0.5)"; armCtx.font = "600 10px 'Segoe UI', sans-serif";
+    armCtx.fillText("(0, 0)", cx + 5, cy + 13);
+    armCtx.fillText("x", armCanvas.width - 12, cy - 5);
+    armCtx.fillText("y", cx + 5, 12);
+
+    // Reachable annulus
+    armCtx.strokeStyle = "rgba(13,148,136,0.35)"; armCtx.lineWidth = 1.25; armCtx.setLineDash([5, 5]);
+    armCtx.beginPath(); armCtx.arc(cx, cy, L1 + L2, 0, Math.PI * 2); armCtx.stroke();
+    armCtx.strokeStyle = "rgba(24,34,48,0.15)";
+    armCtx.beginPath(); armCtx.arc(cx, cy, Math.abs(L1 - L2), 0, Math.PI * 2); armCtx.stroke();
+    armCtx.setLineDash([]);
+
+    // Target marker
+    const mx = cx + tx, my = cy - ty;
+    armCtx.strokeStyle = C_J2; armCtx.lineWidth = 1.5;
+    armCtx.beginPath(); armCtx.arc(mx, my, 10, 0, Math.PI * 2); armCtx.stroke();
+    armCtx.beginPath();
+    armCtx.moveTo(mx - 7, my); armCtx.lineTo(mx + 7, my);
+    armCtx.moveTo(mx, my - 7); armCtx.lineTo(mx, my + 7);
+    armCtx.stroke();
+  }
+
+  function drawJoint(x, y, r, stroke, fill) {
+    armCtx.beginPath(); armCtx.arc(x, y, r, 0, Math.PI * 2);
+    armCtx.fillStyle = fill; armCtx.fill();
+    armCtx.strokeStyle = stroke; armCtx.lineWidth = 2; armCtx.stroke();
+    armCtx.beginPath(); armCtx.arc(x, y, r * 0.32, 0, Math.PI * 2);
+    armCtx.fillStyle = stroke; armCtx.fill();
+  }
+
+  // --- Draw graph ---
+  function drawGraph() {
+    const W = graphCanvas.width, H = graphCanvas.height;
+    graphCtx.clearRect(0, 0, W, H);
+    graphCtx.fillStyle = "#ffffff"; graphCtx.fillRect(0, 0, W, H);
+    const pad = 4, pw = W - pad * 2, ph = H - pad * 2, midY = pad + ph * 0.5, MAXV = 210;
+    const yOf = v => midY - (v / MAXV) * (ph * 0.46);
+
+    graphCtx.strokeStyle = "rgba(24,34,48,0.15)"; graphCtx.lineWidth = 0.75;
+    graphCtx.beginPath(); graphCtx.moveTo(pad, midY); graphCtx.lineTo(pad + pw, midY); graphCtx.stroke();
+
+    function plot(data, color, width, dash) {
+      if (data.length < 2) return;
+      graphCtx.beginPath();
+      for (let i = 0; i < data.length; i++) {
+        const x = pad + (i / GRAPH_POINTS) * pw, y = yOf(data[i]);
+        if (i === 0) graphCtx.moveTo(x, y); else graphCtx.lineTo(x, y);
+      }
+      graphCtx.strokeStyle = color; graphCtx.lineWidth = width; graphCtx.lineJoin = "round";
+      graphCtx.setLineDash(dash || []); graphCtx.stroke(); graphCtx.setLineDash([]);
+    }
+    plot(histT1, "rgba(13,148,136,0.45)", 1.25, [5, 4]);
+    plot(histT2, "rgba(232,131,12,0.45)", 1.25, [5, 4]);
+    plot(hist1, C_J1, 2, null);
+    plot(hist2, C_J2, 2, null);
+
+    graphCtx.font = "600 10px 'Segoe UI', sans-serif"; graphCtx.textAlign = "left";
+    graphCtx.fillStyle = C_J1; graphCtx.fillRect(pad + 4, 8, 14, 3); graphCtx.fillText("shoulder", pad + 22, 12);
+    graphCtx.fillStyle = C_J2; graphCtx.fillRect(pad + 84, 8, 14, 3); graphCtx.fillText("elbow", pad + 102, 12);
+    graphCtx.fillStyle = "rgba(24,34,48,0.45)"; graphCtx.fillText("dashed = target", pad + 150, 12);
+  }
+
+  function loop() {
+    step();
+    drawArm();
+    drawGraph();
+    if (recordingFrameCount % captureEvery === 0) captureRecordingFrame();
+    recordingFrameCount += 1;
+    requestAnimationFrame(loop);
+  }
+  loop();
+
+  // --- Streamlit protocol ---
+  function stMsg(type, data) { window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type: type }, data || {}), "*"); }
+  stMsg("streamlit:componentReady", { apiVersion: 1 });
+  function sendHeight() {
+    const h = Math.ceil($("root").getBoundingClientRect().height) + 8;
+    stMsg("streamlit:setFrameHeight", { height: h });
+  }
+  setTimeout(sendHeight, 50); setTimeout(sendHeight, 400);
+  window.addEventListener("resize", sendHeight);
+  if (window.ResizeObserver) new ResizeObserver(sendHeight).observe($("root"));
+  window.addEventListener("message", function(e) { if (e.data && e.data.type === "streamlit:render") sendHeight(); });
+})();
+</script>
+</body>
+</html>

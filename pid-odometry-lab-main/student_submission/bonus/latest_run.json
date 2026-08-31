@@ -1,0 +1,18 @@
+{
+  "metrics": {
+    "command_effort": 1.509515024933575,
+    "final_error": 0.07923460455420916,
+    "overshoot": 0.0,
+    "settling_time": 9.84
+  },
+  "mission_id": "bonus",
+  "params": {
+    "disturbance": 0.5,
+    "kd": 0.4,
+    "ki": 0.55,
+    "kp": 8.0,
+    "target": 2.0
+  },
+  "saved_at": "2026-07-21T14:39:13",
+  "schema_version": 1
+}

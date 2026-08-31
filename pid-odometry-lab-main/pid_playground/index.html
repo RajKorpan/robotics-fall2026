@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --ink: #182230;
+      --muted: #475467;
+      --line: #d0d5dd;
+      --accent: #2563eb;
+      --bg: #ffffff;
+      --p-color: #2563eb;
+      --i-color: #e97316;
+      --d-color: #7c3aed;
+      --cmd-color: #182230;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; color: var(--ink); }
+    #root { padding: 4px; }
+    .wrap {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 14px;
+      align-items: stretch;
+    }
+    @media (max-width: 720px) {
+      .wrap { grid-template-columns: 1fr; }
+    }
+    .stage {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #ffffff;
+      padding: 6px;
+      position: relative;
+      user-select: none;
+    }
+    canvas { display: block; width: 100%; height: auto; background: #ffffff; border-radius: 8px; cursor: crosshair; touch-action: none; outline: none; }
+    canvas:focus { box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.4); }
+    .hint {
+      font-size: 0.82rem;
+      color: var(--muted);
+      text-align: center;
+      margin: 6px 2px 2px;
+      line-height: 1.35;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--bg);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .panel h3 {
+      margin: 0;
+      font-size: 1.02rem;
+      font-weight: 800;
+    }
+    .panel .sub { font-size: 0.82rem; color: var(--muted); margin-top: -4px; }
+    .obs {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .obs-row {
+      border: 1px solid #e4e7ec;
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: #fcfdff;
+    }
+    .obs-row.cmd-row {
+      border: 1.5px solid #344054;
+      background: #f8f9fb;
+    }
+    .obs-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .obs-name { font-weight: 700; font-size: 0.9rem; }
+    .obs-val {
+      font-variant-numeric: tabular-nums;
+      font-weight: 800;
+      font-size: 1.0rem;
+    }
+    .obs-meter {
+      position: relative;
+      height: 8px;
+      border-radius: 999px;
+      background: #eef2f7;
+      margin-top: 7px;
+      overflow: hidden;
+    }
+    .obs-meter.cmd-meter { height: 11px; }
+    .obs-zero {
+      position: absolute;
+      left: 50%;
+      top: -2px;
+      bottom: -2px;
+      width: 1px;
+      background: #cbd5e1;
+    }
+    .obs-fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      border-radius: 999px;
+    }
+    .obs-scale {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.68rem;
+      color: #98a2b3;
+      margin-top: 3px;
+      font-variant-numeric: tabular-nums;
+    }
+    .reset {
+      align-self: flex-start;
+      border: 1px solid var(--line);
+      background: #f9fafb;
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .reset:hover { background: #eef2f7; }
+    .note { font-size: 0.78rem; color: var(--muted); line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div class="wrap">
+      <div class="stage">
+        <canvas id="stage" width="600" height="300" tabindex="0"></canvas>
+        <div class="hint">
+          <strong>Drag the target</strong> to move it. Watch P react instantly,
+          D brake the approach, and I slowly fix any remaining gap.
+          <strong>&larr; &rarr;</strong> arrow keys add a disturbance.
+        </div>
+      </div>
+      <div class="panel">
+        <div>
+          <h3>PID controller readout</h3>
+          <div class="sub">Each term shown live as the robot chases the target.</div>
+        </div>
+        <div class="obs" id="obs"></div>
+        <button class="reset" id="reset">Reset simulation</button>
+        <div class="note">
+          <strong>P</strong> reacts to the current error.
+          <strong>I</strong> accumulates over time to eliminate steady-state offset.
+          <strong>D</strong> resists rapid changes, damping overshoot.
+          The <strong>command</strong> is their sum, clamped to &plusmn;5.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ---- Streamlit component protocol ---- */
+    function streamlitMessage(type, data) {
+      window.parent.postMessage(
+        Object.assign({ isStreamlitMessage: true, type }, data || {}),
+        "*"
+      );
+    }
+    function ready() {
+      streamlitMessage("streamlit:componentReady", { apiVersion: 1 });
+    }
+    function setHeight() {
+      const root = document.getElementById("root");
+      streamlitMessage("streamlit:setFrameHeight", { height: root.scrollHeight + 6 });
+    }
+
+    /* ---- Constants ---- */
+    const TRACK_MIN = 0;
+    const TRACK_MAX = 4;
+    const MASS = 1.0;
+    const DAMPING = 0.7;
+    const KP = 2.5;
+    const KI = 0.3;
+    const KD = 1.2;
+    const TAU = 0.02;
+    const INTEGRAL_CLAMP = 3.0;
+    const COMMAND_CLAMP = 5.0;
+    const DISTURBANCE_FORCE = 3.0;
+
+    /* ---- State ---- */
+    const state = {
+      robotX: 1.0,
+      robotV: 0.0,
+      targetX: 3.0,
+      integral: 0.0,
+      prevError: null,
+      pTerm: 0.0,
+      iTerm: 0.0,
+      dTerm: 0.0,
+      command: 0.0,
+      error: 0.0,
+    };
+
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    function resetState() {
+      state.robotX = 1.0;
+      state.robotV = 0.0;
+      state.targetX = 3.0;
+      state.integral = 0.0;
+      state.prevError = null;
+      state.pTerm = 0.0;
+      state.iTerm = 0.0;
+      state.dTerm = 0.0;
+      state.command = 0.0;
+      state.error = 0.0;
+      disturbance = 0;
+      pressLeft = false;
+      pressRight = false;
+    }
+
+    /* ---- Canvas setup ---- */
+    const canvas = document.getElementById("stage");
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width;   // 600
+    const H = canvas.height;  // 300
+
+    // DPI scaling for sharp rendering
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.scale(dpr, dpr);
+
+    // Track geometry (in canvas coords)
+    const TRACK_PAD_L = 50;
+    const TRACK_PAD_R = 30;
+    const TRACK_W = W - TRACK_PAD_L - TRACK_PAD_R;
+    const TRACK_Y = H * 0.55;
+    const ROBOT_W = 44;
+    const ROBOT_H = 28;
+
+    function worldToCanvas(xWorld) {
+      const frac = (xWorld - TRACK_MIN) / (TRACK_MAX - TRACK_MIN);
+      return TRACK_PAD_L + frac * TRACK_W;
+    }
+
+    function canvasToWorld(xCanvas) {
+      const frac = (xCanvas - TRACK_PAD_L) / TRACK_W;
+      return TRACK_MIN + frac * (TRACK_MAX - TRACK_MIN);
+    }
+
+    /* ---- Drawing ---- */
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      // Background
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, W, H);
+
+      // Track rail
+      const railY = TRACK_Y + ROBOT_H / 2 + 2;
+      ctx.strokeStyle = "#344054";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(TRACK_PAD_L - 10, railY);
+      ctx.lineTo(W - TRACK_PAD_R + 10, railY);
+      ctx.stroke();
+
+      // Tick marks and labels
+      ctx.fillStyle = var_muted;
+      ctx.font = "11px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      for (let m = 0; m <= 4; m++) {
+        const cx = worldToCanvas(m);
+        ctx.strokeStyle = "#d0d5dd";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cx, railY + 1);
+        ctx.lineTo(cx, railY + 10);
+        ctx.stroke();
+        ctx.fillText(m + "m", cx, railY + 22);
+      }
+
+      // Light grid lines from tick marks upward
+      ctx.strokeStyle = "#eef2f7";
+      ctx.lineWidth = 1;
+      for (let m = 0; m <= 4; m++) {
+        const cx = worldToCanvas(m);
+        ctx.beginPath();
+        ctx.moveTo(cx, 10);
+        ctx.lineTo(cx, railY - 4);
+        ctx.stroke();
+      }
+
+      const robotCX = worldToCanvas(state.robotX);
+      const targetCX = worldToCanvas(state.targetX);
+
+      // Error region between robot and target
+      if (Math.abs(state.error) > 0.01) {
+        const left = Math.min(robotCX, targetCX);
+        const right = Math.max(robotCX, targetCX);
+        ctx.fillStyle = "rgba(239, 68, 68, 0.10)";
+        ctx.fillRect(left, TRACK_Y - ROBOT_H / 2 - 14, right - left, ROBOT_H + 28);
+        // Error bracket lines
+        ctx.strokeStyle = "rgba(239, 68, 68, 0.35)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        const midY = TRACK_Y;
+        ctx.beginPath();
+        ctx.moveTo(left, midY);
+        ctx.lineTo(right, midY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // Error label
+        ctx.fillStyle = "#dc2626";
+        ctx.font = "bold 11px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("error = " + fmtSigned(state.error), (left + right) / 2, TRACK_Y - ROBOT_H / 2 - 20);
+      }
+
+      // Target line (green dashed)
+      ctx.strokeStyle = "#16a34a";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(targetCX, 10);
+      ctx.lineTo(targetCX, railY - 4);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Target label
+      ctx.fillStyle = "#16a34a";
+      ctx.font = "bold 11px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("target", targetCX, 24);
+
+      // Robot rectangle
+      const rx = robotCX - ROBOT_W / 2;
+      const ry = TRACK_Y - ROBOT_H / 2;
+      ctx.fillStyle = "#2563eb";
+      ctx.beginPath();
+      roundRect(ctx, rx, ry, ROBOT_W, ROBOT_H, 5);
+      ctx.fill();
+      // Robot label
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 10px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("ROBOT", robotCX, TRACK_Y);
+      ctx.textBaseline = "alphabetic";
+
+      // Wheels
+      ctx.fillStyle = "#1e40af";
+      circle(ctx, robotCX - 12, TRACK_Y + ROBOT_H / 2 + 1, 4);
+      circle(ctx, robotCX + 12, TRACK_Y + ROBOT_H / 2 + 1, 4);
+
+      // Command force arrow
+      if (Math.abs(state.command) > 0.05) {
+        const arrowLen = (state.command / COMMAND_CLAMP) * 60;
+        const ay = TRACK_Y;
+        const ax = robotCX + (state.command > 0 ? ROBOT_W / 2 + 4 : -ROBOT_W / 2 - 4);
+        const aex = ax + arrowLen;
+        ctx.strokeStyle = "#dc2626";
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(aex, ay);
+        ctx.stroke();
+        // Arrowhead
+        const dir = state.command > 0 ? 1 : -1;
+        ctx.fillStyle = "#dc2626";
+        ctx.beginPath();
+        ctx.moveTo(aex, ay);
+        ctx.lineTo(aex - dir * 8, ay - 5);
+        ctx.lineTo(aex - dir * 8, ay + 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.lineCap = "butt";
+      }
+    }
+
+    const var_muted = "#475467";
+
+    function roundRect(c, x, y, w, h, r) {
+      c.moveTo(x + r, y);
+      c.lineTo(x + w - r, y);
+      c.quadraticCurveTo(x + w, y, x + w, y + r);
+      c.lineTo(x + w, y + h - r);
+      c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      c.lineTo(x + r, y + h);
+      c.quadraticCurveTo(x, y + h, x, y + h - r);
+      c.lineTo(x, y + r);
+      c.quadraticCurveTo(x, y, x + r, y);
+    }
+
+    function circle(c, x, y, r) { c.beginPath(); c.arc(x, y, r, 0, 2 * Math.PI); c.fill(); }
+
+    function fmtSigned(v) {
+      const s = v >= 0 ? "+" : "−";
+      return s + Math.abs(v).toFixed(2);
+    }
+
+    /* ---- Readout panel ---- */
+    function renderObs() {
+      const items = [
+        {
+          name: "Error",
+          value: state.error,
+          unit: "m",
+          limit: TRACK_MAX,
+          color: "#dc2626",
+          minLabel: "−4.0",
+          maxLabel: "+4.0",
+          thick: false,
+        },
+        {
+          name: "P term",
+          value: state.pTerm,
+          unit: "",
+          limit: COMMAND_CLAMP * 1.5,
+          color: "var(--p-color)",
+          minLabel: "−7.5",
+          maxLabel: "+7.5",
+          thick: false,
+        },
+        {
+          name: "I term",
+          value: state.iTerm,
+          unit: "",
+          limit: INTEGRAL_CLAMP * KI * 1.2,
+          color: "var(--i-color)",
+          minLabel: "−" + (INTEGRAL_CLAMP * KI * 1.2).toFixed(1),
+          maxLabel: "+" + (INTEGRAL_CLAMP * KI * 1.2).toFixed(1),
+          thick: false,
+        },
+        {
+          name: "D term",
+          value: state.dTerm,
+          unit: "",
+          limit: COMMAND_CLAMP,
+          color: "var(--d-color)",
+          minLabel: "−5.0",
+          maxLabel: "+5.0",
+          thick: false,
+        },
+        {
+          name: "Command",
+          value: state.command,
+          unit: "",
+          limit: COMMAND_CLAMP,
+          color: "var(--cmd-color)",
+          minLabel: "−5.0",
+          maxLabel: "+5.0",
+          thick: true,
+        },
+      ];
+
+      const container = document.getElementById("obs");
+      container.innerHTML = items.map(function (o) {
+        var frac = clamp(o.value / o.limit, -1, 1);
+        var half = 50;
+        var widthPct = Math.abs(frac) * half;
+        var leftPct = frac >= 0 ? half : half - widthPct;
+        var rowClass = o.thick ? "obs-row cmd-row" : "obs-row";
+        var meterClass = o.thick ? "obs-meter cmd-meter" : "obs-meter";
+        var suffix = o.unit ? " " + o.unit : "";
+        return '<div class="' + rowClass + '">' +
+          '<div class="obs-top">' +
+            '<span class="obs-name">' + o.name + '</span>' +
+            '<span class="obs-val" style="color:' + o.color + '">' + fmtSigned(o.value) + suffix + '</span>' +
+          '</div>' +
+          '<div class="' + meterClass + '">' +
+            '<div class="obs-zero"></div>' +
+            '<div class="obs-fill" style="left:' + leftPct + '%; width:' + widthPct + '%; background:' + o.color + '"></div>' +
+          '</div>' +
+          '<div class="obs-scale"><span>' + o.minLabel + '</span><span>0</span><span>' + o.maxLabel + '</span></div>' +
+        '</div>';
+      }).join("");
+    }
+
+    function frame() {
+      draw();
+      renderObs();
+    }
+
+    /* ---- Interaction: drag target ---- */
+    let dragging = false;
+
+    function canvasPoint(evt) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = W / rect.width;
+      const src = evt.touches ? evt.touches[0] : evt;
+      return { x: (src.clientX - rect.left) * scaleX };
+    }
+
+    function startDrag(evt) {
+      const pt = canvasPoint(evt);
+      const targetCX = worldToCanvas(state.targetX);
+      // Only start drag if near the target line or just anywhere on the track
+      if (pt.x >= TRACK_PAD_L - 10 && pt.x <= W - TRACK_PAD_R + 10) {
+        dragging = true;
+        evt.preventDefault();
+        moveDrag(evt);
+      }
+    }
+
+    function moveDrag(evt) {
+      if (!dragging) return;
+      evt.preventDefault();
+      const pt = canvasPoint(evt);
+      const worldX = canvasToWorld(pt.x);
+      state.targetX = clamp(worldX, TRACK_MIN, TRACK_MAX);
+    }
+
+    function endDrag() {
+      dragging = false;
+    }
+
+    canvas.addEventListener("mousedown", startDrag);
+    window.addEventListener("mousemove", moveDrag);
+    window.addEventListener("mouseup", endDrag);
+    canvas.addEventListener("touchstart", startDrag, { passive: false });
+    window.addEventListener("touchmove", moveDrag, { passive: false });
+    window.addEventListener("touchend", endDrag);
+
+    /* ---- Arrow keys: disturbance force ---- */
+    let pressLeft = false, pressRight = false, disturbance = 0;
+
+    function refreshDisturbance() {
+      disturbance = ((pressRight ? 1 : 0) - (pressLeft ? 1 : 0)) * DISTURBANCE_FORCE;
+    }
+
+    function onKeyDown(e) {
+      if (e.key === "ArrowLeft") { pressLeft = true; e.preventDefault(); }
+      else if (e.key === "ArrowRight") { pressRight = true; e.preventDefault(); }
+      else return;
+      refreshDisturbance();
+    }
+
+    function onKeyUp(e) {
+      if (e.key === "ArrowLeft") pressLeft = false;
+      else if (e.key === "ArrowRight") pressRight = false;
+      else return;
+      refreshDisturbance();
+    }
+
+    canvas.addEventListener("pointerenter", function () { canvas.focus(); });
+    canvas.addEventListener("pointerdown", function () { canvas.focus(); });
+    canvas.addEventListener("keydown", onKeyDown);
+    canvas.addEventListener("keyup", onKeyUp);
+    canvas.addEventListener("blur", function () {
+      pressLeft = false; pressRight = false; refreshDisturbance();
+    });
+
+    /* ---- Reset ---- */
+    document.getElementById("reset").addEventListener("click", function () {
+      resetState();
+      frame();
+    });
+
+    /* ---- Physics: PID controller + 1D dynamics ---- */
+    function pidTick() {
+      var error = state.targetX - state.robotX;
+      state.error = error;
+
+      // P term
+      state.pTerm = KP * error;
+
+      // I term (accumulate and clamp)
+      state.integral += error * TAU;
+      state.integral = clamp(state.integral, -INTEGRAL_CLAMP, INTEGRAL_CLAMP);
+      state.iTerm = KI * state.integral;
+
+      // D term
+      var derivative = 0;
+      if (state.prevError !== null) {
+        derivative = (error - state.prevError) / TAU;
+      }
+      state.dTerm = KD * derivative;
+      state.prevError = error;
+
+      // Total command
+      var cmd = state.pTerm + state.iTerm + state.dTerm;
+      cmd = clamp(cmd, -COMMAND_CLAMP, COMMAND_CLAMP);
+      state.command = cmd;
+
+      // 1D dynamics: acceleration = (pid_command + disturbance - damping * velocity) / mass
+      var accel = (cmd + disturbance - DAMPING * state.robotV) / MASS;
+      state.robotV += accel * TAU;
+      state.robotX += state.robotV * TAU;
+
+      // Clamp position and bounce off walls
+      if (state.robotX > TRACK_MAX) {
+        state.robotX = TRACK_MAX;
+        state.robotV = -Math.abs(state.robotV) * 0.3;
+      }
+      if (state.robotX < TRACK_MIN) {
+        state.robotX = TRACK_MIN;
+        state.robotV = Math.abs(state.robotV) * 0.3;
+      }
+    }
+
+    /* ---- Main loop with substepping ---- */
+    var physicsAccumulator = 0;
+    var lastTick = performance.now();
+
+    function loop(now) {
+      var dt = Math.min(0.05, Math.max(0.001, (now - lastTick) / 1000));
+      lastTick = now;
+
+      physicsAccumulator += dt;
+      var steps = 0;
+      while (physicsAccumulator >= TAU && steps < 8) {
+        pidTick();
+        physicsAccumulator -= TAU;
+        steps++;
+      }
+      if (steps === 8) physicsAccumulator = 0;
+
+      frame();
+      requestAnimationFrame(loop);
+    }
+
+    /* ---- Streamlit render listener ---- */
+    window.addEventListener("message", function (event) {
+      var data = event.data || {};
+      if (data.type !== "streamlit:render") return;
+      setHeight();
+    });
+
+    /* ---- Boot ---- */
+    frame();
+    setHeight();
+    ready();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
