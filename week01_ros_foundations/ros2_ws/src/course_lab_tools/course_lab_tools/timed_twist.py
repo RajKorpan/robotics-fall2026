@@ -27,6 +27,15 @@ def yaw_from_quaternion(orientation) -> float:
     return math.atan2(siny, cosy)
 
 
+def timing_metrics(requested_duration: float, started_at: float | None, stopped_at: float | None, linear_x: float) -> dict:
+    actual = stopped_at - started_at if started_at is not None and stopped_at is not None else None
+    return {
+        "actual_command_duration": actual,
+        "duration_error": actual - requested_duration if actual is not None else None,
+        "expected_linear_travel": abs(linear_x) * requested_duration,
+    }
+
+
 class TimedTwist(Node):
     def __init__(self) -> None:
         super().__init__("timed_twist_trial")
@@ -47,6 +56,9 @@ class TimedTwist(Node):
         self.start_pose = None
         self.end_pose = None
         self.started_at = None
+        self.started_at_utc = None
+        self.stopped_at = None
+        self.stopped_at_utc = None
         self.done = False
         self.stop_sent = False
 
@@ -62,6 +74,7 @@ class TimedTwist(Node):
             return
         if self.started_at is None:
             self.started_at = time.monotonic()
+            self.started_at_utc = datetime.now(timezone.utc).isoformat()
             self.start_pose = dict(self.latest_pose)
             self.get_logger().info(f"Starting {self.trial_type} for {self.duration:.2f}s")
         elapsed = time.monotonic() - self.started_at
@@ -73,21 +86,28 @@ class TimedTwist(Node):
             return
         self.publisher.publish(Twist())
         self.stop_sent = True
+        self.stopped_at = time.monotonic()
+        self.stopped_at_utc = datetime.now(timezone.utc).isoformat()
         self.end_pose = dict(self.latest_pose)
         self.done = True
 
     def result(self) -> dict:
         start = self.start_pose or {"x": 0.0, "y": 0.0, "theta": 0.0}
         end = self.end_pose or self.latest_pose or start
+        timing = timing_metrics(self.duration, self.started_at, self.stopped_at, self.linear_x)
+        observed_displacement = math.hypot(end["x"] - start["x"], end["y"] - start["y"])
         return {
             "trial_type": self.trial_type,
             "captured_at": datetime.now(timezone.utc).isoformat(),
             "linear_x": self.linear_x,
             "angular_z": self.angular_z,
             "duration": self.duration,
+            "command_started_at": self.started_at_utc,
+            "zero_command_sent_at": self.stopped_at_utc,
+            **timing,
             "start_pose": start,
             "end_pose": end,
-            "displacement": math.hypot(end["x"] - start["x"], end["y"] - start["y"]),
+            "displacement": observed_displacement,
             "heading_change": math.atan2(math.sin(end["theta"] - start["theta"]), math.cos(end["theta"] - start["theta"])),
             "completed": self.done,
             "stop_sent": self.stop_sent,
@@ -129,4 +149,3 @@ def main(args=None) -> None:
 
 if __name__ == "__main__":
     main()
-

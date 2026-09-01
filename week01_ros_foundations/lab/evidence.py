@@ -34,6 +34,7 @@ def graph_inventory(graph: dict[str, Any]) -> dict[str, set[str]]:
     return {
         "nodes": {str(node.get("name", node)) for node in graph.get("nodes", [])},
         "topics": {str(topic.get("name", topic)) for topic in graph.get("topics", [])},
+        "services": {str(service.get("name", service)) for service in graph.get("services", [])},
     }
 
 
@@ -52,4 +53,3 @@ def behavior_evaluation() -> dict[str, Any]:
 
 def preflight_result() -> dict[str, Any]:
     return load_json("preflight.json", {})
-

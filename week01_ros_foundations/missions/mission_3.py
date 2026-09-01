@@ -14,6 +14,11 @@ REFLECTION_KEYS = (
     "missing_vs_clear",
     "hardware_limitation",
     "whole_system",
+    "reactive_tradeoff",
+    "behavior_arbitration",
+    "hybrid_extension",
+    "safety_authority",
+    "software_vs_estop",
 )
 
 
@@ -40,6 +45,7 @@ def evaluate(
     design = responses.get("mission_3.design", {})
     design_complete = all(str(design.get(key, "")).strip() for key in ("front_width", "stop_distance", "forward_speed", "invalid_policy", "stale_policy"))
     failure_investigation = len(str(responses.get("mission_3.failure_investigation", "")).strip()) >= 100
+    architecture = str(responses.get("mission_3.architecture", ""))
     reflections_complete = all(str(responses.get(f"mission_3.{key}", "")).strip() for key in REFLECTION_KEYS)
     requirements = [
         RequirementResult("design", "Behavior design completed before evaluation", design_complete, "complete" if design_complete else "incomplete", "complete"),
@@ -49,7 +55,7 @@ def evaluate(
         RequirementResult("bounded", "Velocity command is bounded", command_bounded, command_bounded, "true"),
         RequirementResult("node", "Obstacle guard verified as a ROS node", node_visible, node_visible, "true"),
         RequirementResult("failure", "Failure investigation documented", failure_investigation, len(str(responses.get("mission_3.failure_investigation", ""))), ">= 100 characters"),
+        RequirementResult("architecture", "Obstacle-stop behavior identified as reactive", architecture == "Reactive", architecture or "missing", "Reactive"),
         RequirementResult("reflections", "Mission reflections completed", reflections_complete, "complete" if reflections_complete else "incomplete", "complete"),
     ]
     return check_from_requirements("Your sensor-based ROS behavior passed its safety scenarios.", requirements)
-

@@ -6,7 +6,7 @@ from lab.evidence import behavior_evaluation, evidence_id, latest_graph
 from lab.navigation import set_stage
 from lab.session import complete_mission, response, set_response
 from lab.submissions import save_mission, snapshot_student_source
-from lab.ui import render_check, text_response
+from lab.ui import choice_response, render_check, text_response
 from missions.mission_3 import evaluate
 
 
@@ -72,12 +72,23 @@ def render(st) -> None:
         height=150,
     )
     st.subheader("Explain the completed system")
+    choice_response(
+        st,
+        "mission_3.architecture",
+        "The implemented stimulus–threshold–response behavior is primarily which architecture?",
+        ["Reactive", "Behavior-based", "Deliberative", "Hybrid"],
+    )
     text_response(st, "mission_3.decision_node", "Which node now makes the move/stop decision?")
     text_response(st, "mission_3.received_information", "What information does that node receive?")
     text_response(st, "mission_3.scan_assumptions", "What assumptions does it make about /scan?")
     text_response(st, "mission_3.missing_vs_clear", "Why is no sensor data different from no obstacle?")
     text_response(st, "mission_3.hardware_limitation", "What limitation matters before using this behavior on hardware?")
     text_response(st, "mission_3.whole_system", "Which components together produce the final behavior?")
+    text_response(st, "mission_3.reactive_tradeoff", "Why is this reactive behavior fast, and what memory, prediction, or long-term capability does it lack?")
+    text_response(st, "mission_3.behavior_arbitration", "If obstacle avoidance, wandering, and goal following all publish candidate motions, what conflict must an arbitrator resolve?")
+    text_response(st, "mission_3.hybrid_extension", "Where could a world model and planner be added to make a future system hybrid without removing fast obstacle stopping?")
+    text_response(st, "mission_3.safety_authority", "Why must the supplied command guard be able to restrict commands from teleoperation or your behavior node?")
+    text_response(st, "mission_3.software_vs_estop", "Why are velocity limits and stale-command stopping not a substitute for a physical emergency stop on hardware?")
 
     graph = latest_graph()
     check = evaluate(behavior, graph, st.session_state.get("responses", {}), SOURCE_ROOT)

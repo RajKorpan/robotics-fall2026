@@ -9,6 +9,7 @@ from missions.mission_1 import REQUIRED_TOPICS, evaluate
 
 
 ROLES = ["Sensing", "Decision/control", "Actuation", "Simulation", "Visualization", "Infrastructure"]
+PIPELINE_ROLES = ["Sense", "Decide", "Act", "Support"]
 
 
 def render(st) -> None:
@@ -25,7 +26,11 @@ def render(st) -> None:
 
     nodes = [str(item.get("name", item)) for item in graph.get("nodes", [])]
     topics = graph.get("topics", [])
-    st.success(f"Evidence collector sees {len(nodes)} nodes and {len(topics)} topics.")
+    services = graph.get("services", [])
+    st.success(
+        f"Evidence collector sees {len(nodes)} nodes, {len(topics)} topics, "
+        f"and {len(services)} services."
+    )
 
     with st.expander("Inspection commands", expanded=True):
         st.code(
@@ -35,18 +40,40 @@ def render(st) -> None:
             "ros2 topic info /scan --verbose\n"
             "ros2 interface show sensor_msgs/msg/LaserScan\n"
             "ros2 topic echo /scan --once\n"
-            "ros2 topic echo /odom --once",
+            "ros2 topic echo /odom --once\n"
+            "ros2 service list -t",
             language="bash",
         )
 
-    st.subheader("Classify the nodes")
-    st.caption("Classify at least five. A node may have multiple responsibilities; choose its primary role here.")
+    st.subheader("Classify the nodes as a system")
+    st.caption(
+        "Classify at least five twice: first by subsystem responsibility, then by its "
+        "primary place in the sense–decide–act loop. Use Support for simulation, visualization, or infrastructure."
+    )
     roles = dict(response(st, "mission_1.node_roles", {}))
+    pipeline_roles = dict(response(st, "mission_1.pipeline_roles", {}))
     for name in nodes[:12]:
         values = ["Not classified", *ROLES]
         prior = roles.get(name, "Not classified")
-        roles[name] = st.selectbox(name, values, index=values.index(prior) if prior in values else 0, key=f"role.{name}")
+        pipeline_values = ["Not classified", *PIPELINE_ROLES]
+        pipeline_prior = pipeline_roles.get(name, "Not classified")
+        col1, col2 = st.columns(2)
+        with col1:
+            roles[name] = st.selectbox(
+                f"{name} — subsystem",
+                values,
+                index=values.index(prior) if prior in values else 0,
+                key=f"role.{name}",
+            )
+        with col2:
+            pipeline_roles[name] = st.selectbox(
+                f"{name} — pipeline",
+                pipeline_values,
+                index=pipeline_values.index(pipeline_prior) if pipeline_prior in pipeline_values else 0,
+                key=f"pipeline_role.{name}",
+            )
     set_response(st, "mission_1.node_roles", {key: value for key, value in roles.items() if value != "Not classified"})
+    set_response(st, "mission_1.pipeline_roles", {key: value for key, value in pipeline_roles.items() if value != "Not classified"})
 
     st.subheader("Identify message types")
     type_options = [
@@ -82,16 +109,51 @@ def render(st) -> None:
         connections[key] = "" if selected == values[0] else selected
     set_response(st, "mission_1.connections", connections)
 
+    st.subheader("Inspect request/response communication")
+    st.write(
+        "Topics carry ongoing streams. Services represent a request followed by a response. "
+        "Inspect, but do not call, an unfamiliar service."
+    )
+    if services:
+        st.dataframe(services[:20], hide_index=True, width="stretch")
+    service_example = dict(response(st, "mission_1.service_example", {}))
+    service_example["name"] = st.text_input(
+        "One observed service name",
+        value=str(service_example.get("name", "")),
+        key="service_example.name",
+    )
+    service_example["type"] = st.text_input(
+        "Its service type",
+        value=str(service_example.get("type", "")),
+        key="service_example.type",
+    )
+    service_example["purpose"] = st.text_area(
+        "Based on its name and type, what request/response purpose does it likely serve?",
+        value=str(service_example.get("purpose", "")),
+        key="service_example.purpose",
+    )
+    set_response(st, "mission_1.service_example", service_example)
+
     st.subheader("Explain what you observed")
     text_response(st, "mission_1.node_vs_topic", "What is the difference between a node and a topic?")
     text_response(st, "mission_1.sense_decide_act", "Which observed components sense, decide, and act?")
     text_response(st, "mission_1.multiple_subscribers", "Why can multiple nodes receive /scan without consuming it?")
     text_response(st, "mission_1.teleop_change", "What changes in the ROS graph when teleoperation starts?")
     text_response(st, "mission_1.rviz_role", "Is RViz part of control or an observer? Defend your answer.")
+    text_response(st, "mission_1.service_vs_topic", "Use your live evidence to explain how a service differs from a topic.")
+    text_response(st, "mission_1.middleware_evidence", "What live evidence supports describing ROS 2 as middleware rather than as the robot's operating system?")
+    text_response(st, "mission_1.failure_diagnosis", "Choose one missing node, topic, or message connection and predict the observable failure it would cause.")
+    text_response(st, "mission_1.architecture_observation", "Is the system you observed purely reactive, behavior-based, deliberative, or hybrid? State what is actually present and avoid claiming a planner that you did not observe.")
 
     check = evaluate(graph, st.session_state.get("responses", {}))
     render_check(st, check)
-    current_id = evidence_id(graph, response(st, "mission_1.node_roles", {}), response(st, "mission_1.connections", {}))
+    current_id = evidence_id(
+        graph,
+        response(st, "mission_1.node_roles", {}),
+        response(st, "mission_1.pipeline_roles", {}),
+        response(st, "mission_1.connections", {}),
+        response(st, "mission_1.service_example", {}),
+    )
     checked_id = st.session_state.get("checked_evidence_ids", {}).get("mission_1")
     if check.passed and checked_id != current_id:
         if st.button("Check and save Mission 1", type="primary"):

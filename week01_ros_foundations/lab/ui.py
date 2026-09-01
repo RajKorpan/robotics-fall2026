@@ -30,8 +30,8 @@ def render_check(st, check: MissionCheck) -> None:
     rows = [
         {
             "Requirement": item.label,
-            "Actual": item.actual,
-            "Expected": item.expected,
+            "Actual": str(item.actual),
+            "Expected": str(item.expected),
             "Status": "Pass" if item.passed else "Not yet",
         }
         for item in check.requirements
@@ -41,4 +41,3 @@ def render_check(st, check: MissionCheck) -> None:
         st.success(check.summary)
     else:
         st.warning("The mission is not complete yet. Review the requirements above.")
-

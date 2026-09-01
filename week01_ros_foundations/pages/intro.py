@@ -8,11 +8,12 @@ def render(st) -> None:
     st.markdown(
         "A mobile robot is not one Python program. It is a system of components that "
         "sense, communicate, decide, and act. In this lab you will inspect that system, "
-        "control it, and add one new decision-making component."
+        "compare ways to organize it, control it, and add one new decision-making component."
     )
     st.info("This is an individual lab. Every prediction, run, code change, and explanation must be your own.")
     st.subheader("What you will produce")
     st.markdown(
+        "- Analyses of robotics failures, timing, and software architectures\n"
         "- A ROS node/topic system diagram\n"
         "- Predicted-versus-observed motion evidence\n"
         "- A tested obstacle-stop ROS node\n"
@@ -25,5 +26,4 @@ def render(st) -> None:
     st.session_state["student"] = student
     ready = all(str(value).strip() for value in student.values())
     if st.button("Begin lab", type="primary", disabled=not ready):
-        set_stage(st, "concepts")
-
+        set_stage(st, "part_1")

@@ -31,7 +31,75 @@ def save_mission(mission_id: str, evidence: dict[str, Any], responses: dict[str,
     for key, value in answers.items():
         lines.extend([f"## {key.replace('_', ' ').title()}", "", str(value), ""])
     (target / "explanation.md").write_text("\n".join(lines), encoding="utf-8")
+    if mission_id == "mission_1":
+        _write_ros_system_diagram(target, responses)
     return target
+
+
+def _write_ros_system_diagram(target: Path, responses: dict[str, Any]) -> Path:
+    target.mkdir(parents=True, exist_ok=True)
+    roles = responses.get("mission_1.node_roles", {})
+    pipeline_roles = responses.get("mission_1.pipeline_roles", {})
+    service = responses.get("mission_1.service_example", {})
+    lines = [
+        "# Observed ROS 2 system diagram",
+        "",
+        "```mermaid",
+        "flowchart LR",
+        '  command["Teleoperation or obstacle behavior"] -->|/student_cmd_vel: Twist| guard["Command guard"]',
+        '  guard -->|/cmd_vel: Twist| robot["Simulated robot and controller"]',
+        '  robot -->|/scan: LaserScan| behavior["Behavior and visualization"]',
+        '  robot -->|/odom: Odometry| evidence["Evidence and visualization"]',
+        "```",
+        "",
+        "The diagram records the verified command and sensing paths. It is not evidence of a planner unless a planner node was observed.",
+        "",
+        "## Classified live nodes",
+        "",
+        "| Node | Subsystem role | Sense–decide–act role |",
+        "|---|---|---|",
+    ]
+    for node in sorted(set(roles) | set(pipeline_roles)):
+        lines.append(f"| {node} | {roles.get(node, '')} | {pipeline_roles.get(node, '')} |")
+    lines.extend([
+        "",
+        "## Observed service example",
+        "",
+        f"- Name: {service.get('name', '')}",
+        f"- Type: {service.get('type', '')}",
+        f"- Likely purpose: {service.get('purpose', '')}",
+        "",
+    ])
+    path = target / "ros_system_diagram.md"
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return path
+
+
+def write_foundations_summary(st) -> Path:
+    responses = dict(st.session_state.get("responses", {}))
+    lines = [
+        "# Week 1 conceptual foundations",
+        "",
+        "These responses were completed before or alongside the live ROS missions.",
+        "",
+    ]
+    headings = {
+        "part_1.": "Part 1 — Why robotics software is difficult",
+        "part_2.": "Part 2 — Robot software architectures",
+        "part_3.": "Part 3 — What ROS 2 provides",
+    }
+    for prefix, heading in headings.items():
+        lines.extend([f"## {heading}", ""])
+        for key, value in sorted(responses.items()):
+            if not key.startswith(prefix):
+                continue
+            label = key[len(prefix):].replace(".", " — ").replace("_", " ").title()
+            rendered = json.dumps(value, indent=2) if isinstance(value, (dict, list)) else str(value)
+            lines.extend([f"### {label}", "", rendered, ""])
+    path = submission_root() / "foundations.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return path
 
 
 def snapshot_student_source() -> Path:
@@ -74,4 +142,3 @@ def write_manifest(st) -> Path:
     path = root / "manifest.json"
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path
-

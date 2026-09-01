@@ -75,6 +75,10 @@ def render(st) -> None:
     if trials:
         st.subheader("Recorded trials")
         st.dataframe(trials, hide_index=True, width="stretch")
+        st.caption(
+            "The trial records both the requested duration and the measured interval before the zero command. "
+            "Displacement can differ from speed × time because commands, simulation, odometry, and physical response are not identical."
+        )
     else:
         st.warning("No motion trials have been recorded yet.")
     if st.button("Refresh recorded trials"):
@@ -104,6 +108,22 @@ def render(st) -> None:
     text_response(st, "mission_2.least_accurate", "Which prediction was least accurate, and what evidence shows that?")
     text_response(st, "mission_2.command_vs_motion", "What distinguishes the command sent from the motion achieved?")
     text_response(st, "mission_2.safe_stop", "Why must every timed trial end with a zero command?")
+    text_response(
+        st,
+        "mission_2.timing_evidence",
+        "Compare requested duration, actual command duration, duration error, expected linear travel, and observed displacement for at least two trials. What does the evidence establish?",
+        height=150,
+    )
+    text_response(
+        st,
+        "mission_2.delay_risk",
+        "Using the timing explorer from Part 1 and your trials, explain how response delay changes physical risk.",
+    )
+    text_response(
+        st,
+        "mission_2.stale_command",
+        "Why should a distributed robot stop when velocity commands become stale, even if the last command was valid when published?",
+    )
 
     check = evaluate(trials, st.session_state.get("responses", {}))
     render_check(st, check)

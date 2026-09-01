@@ -12,6 +12,7 @@ setup(
         (f"share/{package_name}", ["package.xml"]),
     ],
     install_requires=["setuptools"],
+    tests_require=["pytest"],
     zip_safe=True,
     maintainer="Course Instructor",
     maintainer_email="instructor@example.edu",
@@ -19,4 +20,3 @@ setup(
     license="Apache-2.0",
     entry_points={"console_scripts": ["evidence_collector = course_evidence_collector.collector:main"]},
 )
-

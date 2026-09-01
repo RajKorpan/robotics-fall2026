@@ -27,6 +27,17 @@ def atomic_json(path: Path, payload) -> None:
     temporary.replace(path)
 
 
+def graph_snapshot_payload(nodes, topics, services, samples, captured_at=None) -> dict:
+    return {
+        "schema_version": 2,
+        "captured_at": captured_at or datetime.now(timezone.utc).isoformat(),
+        "nodes": sorted(nodes, key=lambda value: value["name"]),
+        "topics": sorted(topics, key=lambda value: value["name"]),
+        "services": sorted(services, key=lambda value: value["name"]),
+        "samples": samples,
+    }
+
+
 class EvidenceCollector(Node):
     def __init__(self) -> None:
         super().__init__("course_evidence_collector")
@@ -82,17 +93,20 @@ class EvidenceCollector(Node):
             {"name": name, "types": list(types)}
             for name, types in self.get_topic_names_and_types()
         ]
-        payload = {
-            "schema_version": 1,
-            "captured_at": datetime.now(timezone.utc).isoformat(),
-            "nodes": sorted(nodes, key=lambda value: value["name"]),
-            "topics": sorted(topics, key=lambda value: value["name"]),
-            "samples": {
+        services = [
+            {"name": name, "types": list(types)}
+            for name, types in self.get_service_names_and_types()
+        ]
+        payload = graph_snapshot_payload(
+            nodes,
+            topics,
+            services,
+            {
                 "/scan": self.latest_scan,
                 "/odom": self.latest_odom,
                 "/student_cmd_vel": self.latest_command,
             },
-        }
+        )
         atomic_json(self.output / "graph_snapshot.json", payload)
 
 
@@ -108,4 +122,3 @@ def main(args=None) -> None:
 
 if __name__ == "__main__":
     main()
-

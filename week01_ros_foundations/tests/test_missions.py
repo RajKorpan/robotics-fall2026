@@ -14,6 +14,7 @@ def passing_graph():
         "captured_at": "2026-08-31T00:00:00Z",
         "nodes": [{"name": f"/node_{index}"} for index in range(5)] + [{"name": "/obstacle_guard"}],
         "topics": [{"name": name, "types": [kind]} for name, kind in m1.REQUIRED_TOPICS.items()],
+        "services": [{"name": "/reset_world", "types": ["std_srvs/srv/Empty"]}],
     }
 
 
@@ -21,8 +22,10 @@ class MissionValidationTests(unittest.TestCase):
     def test_mission_one_passes_complete_evidence(self) -> None:
         responses = {
             "mission_1.node_roles": {f"/node_{index}": "Infrastructure" for index in range(5)},
+            "mission_1.pipeline_roles": {f"/node_{index}": "Support" for index in range(5)},
             "mission_1.topic_types": dict(m1.REQUIRED_TOPICS),
             "mission_1.connections": dict(m1.REQUIRED_CONNECTION_ANSWERS),
+            "mission_1.service_example": {"name": "/reset_world", "type": "std_srvs/srv/Empty", "purpose": "Reset simulation"},
             **{f"mission_1.{key}": "Explanation" for key in m1.REFLECTION_KEYS},
         }
         self.assertTrue(m1.evaluate(passing_graph(), responses).passed)
@@ -30,15 +33,28 @@ class MissionValidationTests(unittest.TestCase):
     def test_mission_one_rejects_wrong_command_path(self) -> None:
         responses = {
             "mission_1.node_roles": {f"/node_{index}": "Infrastructure" for index in range(5)},
+            "mission_1.pipeline_roles": {f"/node_{index}": "Support" for index in range(5)},
             "mission_1.topic_types": dict(m1.REQUIRED_TOPICS),
             "mission_1.connections": {**m1.REQUIRED_CONNECTION_ANSWERS, "guard_output": "/scan"},
+            "mission_1.service_example": {"name": "/reset_world", "type": "std_srvs/srv/Empty", "purpose": "Reset simulation"},
             **{f"mission_1.{key}": "Explanation" for key in m1.REFLECTION_KEYS},
         }
         self.assertFalse(m1.evaluate(passing_graph(), responses).passed)
 
     def test_mission_two_requires_modified_curve(self) -> None:
         trials = [
-            {"trial_type": kind, "captured_at": "2026-08-31T00:01:00Z", "completed": True, "stop_sent": True, "linear_x": 0.1, "angular_z": 0.2}
+            {
+                "trial_type": kind,
+                "captured_at": "2026-08-31T00:01:00Z",
+                "completed": True,
+                "stop_sent": True,
+                "linear_x": 0.1,
+                "angular_z": 0.2,
+                "command_started_at": "2026-08-31T00:00:57Z",
+                "zero_command_sent_at": "2026-08-31T00:01:00Z",
+                "actual_command_duration": 3.0,
+                "duration_error": 0.0,
+            }
             for kind in m2.TRIAL_TYPES
         ]
         responses = {
@@ -49,7 +65,18 @@ class MissionValidationTests(unittest.TestCase):
             **{f"mission_2.{key}": "Explanation" for key in m2.REFLECTION_KEYS},
         }
         self.assertFalse(m2.evaluate(trials, responses).passed)
-        trials.append({"trial_type": "curve_modified", "captured_at": "2026-08-31T00:02:00Z", "completed": True, "stop_sent": True, "linear_x": 0.1, "angular_z": 0.3})
+        trials.append({
+            "trial_type": "curve_modified",
+            "captured_at": "2026-08-31T00:02:00Z",
+            "completed": True,
+            "stop_sent": True,
+            "linear_x": 0.1,
+            "angular_z": 0.3,
+            "command_started_at": "2026-08-31T00:01:56Z",
+            "zero_command_sent_at": "2026-08-31T00:02:00Z",
+            "actual_command_duration": 4.0,
+            "duration_error": 0.0,
+        })
         self.assertTrue(m2.evaluate(trials, responses).passed)
 
     def test_mission_three_requires_all_safety_scenarios(self) -> None:
@@ -62,6 +89,7 @@ class MissionValidationTests(unittest.TestCase):
         responses = {
             "mission_3.design": {key: "safe" for key in ("front_width", "stop_distance", "forward_speed", "invalid_policy", "stale_policy")},
             "mission_3.failure_investigation": "Prediction, failure evidence, restoration, and analysis. " * 3,
+            "mission_3.architecture": "Reactive",
             **{f"mission_3.{key}": "Explanation" for key in m3.REFLECTION_KEYS},
         }
         with tempfile.TemporaryDirectory() as directory:

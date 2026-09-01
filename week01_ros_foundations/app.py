@@ -7,12 +7,14 @@ from lab.autosave import autosave, load_saved_state
 from lab.navigation import current_stage, render_progress, set_stage
 from lab.session import initialize_session
 from lab_config import LAB
-from pages import concepts, final, intro, mission_1, mission_2, mission_3, preflight
+from pages import final, intro, mission_1, mission_2, mission_3, part_1, part_2, part_3, preflight
 
 
 PAGES = {
     "intro": intro.render,
-    "concepts": concepts.render,
+    "part_1": part_1.render,
+    "part_2": part_2.render,
+    "part_3": part_3.render,
     "preflight": preflight.render,
     "mission_1": mission_1.render,
     "mission_2": mission_2.render,
@@ -31,16 +33,30 @@ def run_smoke_test() -> None:
         "topics": [
             {"name": name, "types": [kind]} for name, kind in m1.REQUIRED_TOPICS.items()
         ],
+        "services": [{"name": "/reset_world", "types": ["std_srvs/srv/Empty"]}],
     }
     responses = {
         "mission_1.node_roles": {f"/node_{i}": "Infrastructure" for i in range(5)},
+        "mission_1.pipeline_roles": {f"/node_{i}": "Support" for i in range(5)},
         "mission_1.topic_types": dict(m1.REQUIRED_TOPICS),
         "mission_1.connections": dict(m1.REQUIRED_CONNECTION_ANSWERS),
+        "mission_1.service_example": {"name": "/reset_world", "type": "std_srvs/srv/Empty", "purpose": "Reset simulation state"},
         **{f"mission_1.{key}": "Complete explanation" for key in m1.REFLECTION_KEYS},
     }
     assert m1.evaluate(graph, responses).passed
     trials = [
-        {"trial_type": kind, "captured_at": "2026-08-31T00:01:00Z", "completed": True, "stop_sent": True, "linear_x": 0.1, "angular_z": 0.2}
+        {
+            "trial_type": kind,
+            "captured_at": "2026-08-31T00:01:00Z",
+            "completed": True,
+            "stop_sent": True,
+            "linear_x": 0.1,
+            "angular_z": 0.2,
+            "command_started_at": "2026-08-31T00:00:57Z",
+            "zero_command_sent_at": "2026-08-31T00:01:00Z",
+            "actual_command_duration": 3.0,
+            "duration_error": 0.0,
+        }
         for kind in (*m2.TRIAL_TYPES, "curve_modified")
     ]
     responses.update({
@@ -60,6 +76,7 @@ def run_smoke_test() -> None:
     responses.update({
         "mission_3.design": {key: "safe" for key in ("front_width", "stop_distance", "forward_speed", "invalid_policy", "stale_policy")},
         "mission_3.failure_investigation": "A documented prediction, observed failure, restoration, and explanation. " * 2,
+        "mission_3.architecture": "Reactive",
         **{f"mission_3.{key}": "Complete explanation" for key in m3.REFLECTION_KEYS},
     })
     source = Path(__file__).resolve().parent / "ros2_ws" / "src" / "week01_behavior"
@@ -102,7 +119,8 @@ def run_streamlit_app() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=LAB.title)
     parser.add_argument("--smoke-test", action="store_true")
-    args = parser.parse_args()
+    # Streamlit and its AppTest runner may add their own process arguments.
+    args, _ = parser.parse_known_args()
     if args.smoke_test:
         run_smoke_test()
     else:

@@ -10,11 +10,15 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(evidence_id({"a": 1, "b": 2}), evidence_id({"b": 2, "a": 1}))
 
     def test_graph_inventory_accepts_structured_entries(self) -> None:
-        inventory = graph_inventory({"nodes": [{"name": "/node"}], "topics": [{"name": "/scan"}]})
+        inventory = graph_inventory({
+            "nodes": [{"name": "/node"}],
+            "topics": [{"name": "/scan"}],
+            "services": [{"name": "/reset_world"}],
+        })
         self.assertEqual(inventory["nodes"], {"/node"})
         self.assertEqual(inventory["topics"], {"/scan"})
+        self.assertEqual(inventory["services"], {"/reset_world"})
 
 
 if __name__ == "__main__":
     unittest.main()
-

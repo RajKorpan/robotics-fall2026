@@ -1,15 +1,19 @@
 # Week 1: Discovering a Robot Through ROS 2
 
-This individual lab teaches ROS 2 by having each student inspect, control, and extend a simulated TurtleBot3 system. Week 1 includes the one-time setup of the shared course container, but installation troubleshooting is not the graded learning objective.
+This individual lab connects three conceptual foundations to a simulated TurtleBot3: why robotics software is difficult, how robot architectures organize sensing and action, and how ROS 2 implements modular communication. Week 1 includes the one-time setup of the shared course container, but installation troubleshooting is not the graded learning objective.
 
 ## Learning sequence
 
-1. **Robot systems:** predict how sensing, decision, and actuation components communicate.
-2. **Preflight:** verify a supplied ROS 2 Jazzy environment.
-3. **Mission 1 — Observe:** inspect nodes, topics, message types, and graph relationships.
-4. **Mission 2 — Control:** predict and execute straight, rotational, and curved velocity commands.
-5. **Mission 3 — Create behavior:** implement and test a LiDAR-based obstacle-stop node.
-6. **Final synthesis:** explain why the robot is a system of interacting components.
+1. **Part 1 — Why robotics software is difficult:** analyze imperfect sensors, timing, distributed programs, hardware assumptions, and consequences in the physical world.
+2. **Part 2 — Robot software architectures:** compare reactive, behavior-based, deliberative, and hybrid systems; reason about arbitration and layered safety.
+3. **Part 3 — What ROS 2 provides:** distinguish middleware, nodes, topics, messages, publishers/subscribers, services, and the ROS graph.
+4. **Preflight:** verify the shared ROS 2 Jazzy environment.
+5. **Mission 1 — Observe:** inspect nodes, topics, services, message types, communication paths, and sense–decide–act roles.
+6. **Mission 2 — Control:** predict and execute motion, then compare command timing and expected versus observed behavior.
+7. **Mission 3 — Create behavior:** implement a reactive LiDAR obstacle-stop node and analyze its place in a layered or future hybrid architecture.
+8. **Final synthesis:** connect the three parts to live evidence and the implemented behavior.
+
+The three conceptual parts are required Streamlit activities, not copies of the lecture slides. Their responses autosave and are collected in `student_submission/foundations.md`.
 
 ## Supported environment
 
@@ -17,7 +21,7 @@ The recommended environment is the shared course Docker image on Windows, macOS,
 
 Native Ubuntu 24.04 with ROS 2 Jazzy remains a supported performance fallback. Native ROS installation on Windows and macOS is not part of the supported course workflow.
 
-The ROS packages are deliberately separated from the Streamlit application. ROS writes machine-readable evidence to `runtime/evidence/`; Streamlit reads that evidence and creates the durable `student_submission/` record.
+The ROS packages are deliberately separated from the Streamlit application. ROS writes machine-readable graph, service, timing, and behavior evidence to `runtime/evidence/`; Streamlit reads that evidence and creates the durable `student_submission/` record.
 
 ## One-time student setup — Windows, macOS, or Linux
 
@@ -116,10 +120,13 @@ The app generates:
 ```text
 student_submission/
 ├── student.json
+├── foundations.md
+├── final_reflection.md
 ├── autosave/
 │   ├── responses.json
 │   └── responses.md
 ├── mission_1/
+│   └── ros_system_diagram.md
 ├── mission_2/
 ├── mission_3/
 │   └── source/

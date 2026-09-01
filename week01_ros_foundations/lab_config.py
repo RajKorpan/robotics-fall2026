@@ -19,7 +19,6 @@ LAB = LabConfig(
     id="week01_ros_foundations",
     title="Week 1: Discovering a Robot Through ROS 2",
     subtitle="Observe, control, and extend a simulated mobile robot",
-    stages=("intro", "concepts", "preflight", "mission_1", "mission_2", "mission_3", "final"),
+    stages=("intro", "part_1", "part_2", "part_3", "preflight", "mission_1", "mission_2", "mission_3", "final"),
     missions=("mission_1", "mission_2", "mission_3"),
 )
-

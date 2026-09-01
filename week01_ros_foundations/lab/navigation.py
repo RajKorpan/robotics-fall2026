@@ -20,7 +20,9 @@ def render_progress(st) -> None:
     index = LAB.stages.index(stage)
     labels = {
         "intro": "Introduction",
-        "concepts": "Robot systems",
+        "part_1": "Why robotics is difficult",
+        "part_2": "Robot architectures",
+        "part_3": "What ROS 2 provides",
         "preflight": "Environment check",
         "mission_1": "Observe",
         "mission_2": "Control",
@@ -28,4 +30,3 @@ def render_progress(st) -> None:
         "final": "Submit",
     }
     st.progress((index + 1) / len(LAB.stages), text=f"{index + 1}/{len(LAB.stages)} — {labels[stage]}")
-
