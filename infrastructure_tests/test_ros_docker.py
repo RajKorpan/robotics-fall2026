@@ -66,11 +66,26 @@ class SharedRosEnvironmentTests(unittest.TestCase):
             self.assertIn(lab, doctor)
 
     def test_ros_setup_is_sourced_before_nounset(self):
-        for script in ("course-build-workspaces", "course-doctor", "course-lab"):
-            body = (ROOT / "docker/scripts" / script).read_text(encoding="utf-8")
+        scripts = [
+            ROOT / "docker/scripts" / script
+            for script in ("course-build-workspaces", "course-doctor", "course-lab")
+        ]
+        for lab in ROS_LABS:
+            scripts.extend(sorted((ROOT / lab / "scripts").glob("*.sh")))
+        for script in scripts:
+            body = script.read_text(encoding="utf-8")
+            if "source /opt/ros/jazzy/setup.bash" not in body:
+                continue
             source_position = body.index("source /opt/ros/jazzy/setup.bash")
-            nounset_position = body.index("set -u", source_position)
-            self.assertLess(source_position, nounset_position, script)
+            nounset_matches = list(re.finditer(r"^set\s+-[^\n]*u[^\n]*$", body, re.MULTILINE))
+            self.assertTrue(nounset_matches, str(script))
+            nounset_position = nounset_matches[0].start()
+            self.assertLess(source_position, nounset_position, str(script))
+            workspace_sources = list(
+                re.finditer(r"^\s*source\s+[^\n]*install/setup\.bash", body, re.MULTILINE)
+            )
+            for workspace_source in workspace_sources:
+                self.assertLess(workspace_source.start(), nounset_position, str(script))
 
     def test_python_ros_packages_declare_ament_python(self):
         for lab in ROS_LABS:

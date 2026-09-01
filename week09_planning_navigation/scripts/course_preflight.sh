@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-set -u
+set -e
 source /opt/ros/jazzy/setup.bash
 export TURTLEBOT3_MODEL="${TURTLEBOT3_MODEL:-burger}"
 if [[ -f ros2_ws/install/setup.bash ]]; then source ros2_ws/install/setup.bash; fi
+set -u
 python3 scripts/preflight.py
-
