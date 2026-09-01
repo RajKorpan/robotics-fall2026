@@ -6,6 +6,8 @@ import unittest
 from pathlib import Path
 
 from lab import submissions
+from lab.navigation import set_stage
+from lab.session import initialize_session, sanitize_responses
 from lab_config import LAB
 
 
@@ -21,21 +23,30 @@ class FoundationIntegrationTests(unittest.TestCase):
 
     def test_three_parts_cover_slide_concepts(self) -> None:
         expected = {
-            "part_1.py": ("Sensors", "Timing", "Distribution", "Hardware"),
-            "part_2.py": ("Reactive", "Behavior-based", "Deliberative", "Hybrid", "Layered safety"),
-            "part_3.py": ("middleware", "Node", "Topic", "Message", "Service", "ROS graph"),
+            "robotics_challenges": ("Sensor", "Timing", "Distributed system", "Hardware"),
+            "architecture_playground": ("Reactive", "Behavior-based", "Deliberative", "Hybrid", "Safety override"),
+            "ros_graph_playground": ("Middleware", "Node", "Topic", "Message", "Service", "graph"),
         }
-        for filename, concepts in expected.items():
-            with self.subTest(page=filename):
-                source = (ROOT / "pages" / filename).read_text(encoding="utf-8")
+        for component, concepts in expected.items():
+            with self.subTest(component=component):
+                source = (ROOT / "components" / component / "index.html").read_text(encoding="utf-8")
                 for concept in concepts:
                     self.assertIn(concept, source)
+                self.assertIn("streamlit:setComponentValue", source)
+
+    def test_foundation_pages_are_demonstrations_not_quizzes(self) -> None:
+        forbidden = ("text_response", "choice_response", "selectbox", "text_area", "number_input")
+        for number in (1, 2, 3):
+            source = (ROOT / "pages" / f"part_{number}.py").read_text(encoding="utf-8")
+            for term in forbidden:
+                self.assertNotIn(term, source)
+            self.assertIn("tutorial_component", source)
 
     def test_foundations_and_diagram_are_durable_artifacts(self) -> None:
         responses = {
-            "part_1.challenge_one": "A delayed response can create a collision.",
-            "part_2.lab_prediction": "Reactive",
-            "part_3.middleware": "ROS 2 connects components.",
+            "part_1.activity": {"sensor": True, "timing": True, "distributed": True, "hardware": True},
+            "part_2.activity": {"modes": {"reactive": True, "hybrid": True}, "safety": True},
+            "part_3.activity": {"topic": True, "service": True, "failure": True, "inspect": True},
             "mission_1.node_roles": {"/laser": "Sensing"},
             "mission_1.pipeline_roles": {"/laser": "Sense"},
             "mission_1.service_example": {
@@ -56,6 +67,7 @@ class FoundationIntegrationTests(unittest.TestCase):
                 submissions.submission_root = previous
             self.assertEqual(path, root / "foundations.md")
             summary = path.read_text(encoding="utf-8")
+            self.assertIn("ungraded", summary)
             self.assertIn("Why robotics software is difficult", summary)
             self.assertIn("Robot software architectures", summary)
             self.assertIn("What ROS 2 provides", summary)
@@ -65,6 +77,30 @@ class FoundationIntegrationTests(unittest.TestCase):
             self.assertIn("/student_cmd_vel", rendered)
             self.assertIn("/reset_world", rendered)
             self.assertIn("Sense–decide–act role", rendered)
+
+    def test_identity_and_retired_quiz_fields_are_sanitized(self) -> None:
+        class FakeStreamlit:
+            def __init__(self) -> None:
+                self.session_state = {
+                    "student": {"name": "Student", "email": "student@example.edu", "course_id": "old"},
+                    "responses": {"part_1.challenge_one": "old", "mission_1.note": "keep"},
+                }
+
+            def rerun(self) -> None:
+                self.reran = True
+
+        fake = FakeStreamlit()
+        initialize_session(fake)
+        self.assertEqual(set(fake.session_state["student"]), {"name", "email"})
+        self.assertEqual(sanitize_responses(fake.session_state["responses"]), {"mission_1.note": "keep"})
+        set_stage(fake, "part_1")
+        self.assertTrue(fake.session_state["scroll_to_top_pending"])
+        self.assertTrue(fake.reran)
+
+    def test_course_id_is_removed_from_student_interface(self) -> None:
+        for relative in ("pages/intro.py", "lab/session.py", "lab/autosave.py", "lab/submissions.py"):
+            source = (ROOT / relative).read_text(encoding="utf-8")
+            self.assertNotIn("Course ID", source)
 
     def test_collector_records_services_and_timing_tool_records_stop(self) -> None:
         collector = (

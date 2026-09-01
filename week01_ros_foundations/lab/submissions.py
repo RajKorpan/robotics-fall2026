@@ -78,24 +78,20 @@ def _write_ros_system_diagram(target: Path, responses: dict[str, Any]) -> Path:
 def write_foundations_summary(st) -> Path:
     responses = dict(st.session_state.get("responses", {}))
     lines = [
-        "# Week 1 conceptual foundations",
+        "# Week 1 guided tutorial activity record",
         "",
-        "These responses were completed before or alongside the live ROS missions.",
+        "Parts 1–3 were ungraded, teaching-first demonstrations completed before the live ROS missions.",
         "",
     ]
-    headings = {
-        "part_1.": "Part 1 — Why robotics software is difficult",
-        "part_2.": "Part 2 — Robot software architectures",
-        "part_3.": "Part 3 — What ROS 2 provides",
+    activities = {
+        "part_1.activity": "Part 1 — Why robotics software is difficult",
+        "part_2.activity": "Part 2 — Robot software architectures",
+        "part_3.activity": "Part 3 — What ROS 2 provides",
     }
-    for prefix, heading in headings.items():
+    for key, heading in activities.items():
         lines.extend([f"## {heading}", ""])
-        for key, value in sorted(responses.items()):
-            if not key.startswith(prefix):
-                continue
-            label = key[len(prefix):].replace(".", " — ").replace("_", " ").title()
-            rendered = json.dumps(value, indent=2) if isinstance(value, (dict, list)) else str(value)
-            lines.extend([f"### {label}", "", rendered, ""])
+        value = responses.get(key, {})
+        lines.extend(["```json", json.dumps(value, indent=2, sort_keys=True), "```", ""])
     path = submission_root() / "foundations.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines), encoding="utf-8")
@@ -134,7 +130,10 @@ def write_manifest(st) -> Path:
         "schema_version": 1,
         "lab_id": LAB.id,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "student": dict(st.session_state.get("student", {})),
+        "student": {
+            key: str(dict(st.session_state.get("student", {})).get(key, ""))
+            for key in ("name", "email")
+        },
         "completed_missions": list(st.session_state.get("completed_missions", [])),
         "checked_evidence_ids": dict(st.session_state.get("checked_evidence_ids", {})),
         "files": files,

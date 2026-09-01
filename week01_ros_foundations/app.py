@@ -4,8 +4,8 @@ import argparse
 import os
 
 from lab.autosave import autosave, load_saved_state
-from lab.navigation import current_stage, render_progress, set_stage
-from lab.session import initialize_session
+from lab.navigation import current_stage, render_progress, scroll_to_top_if_requested, set_stage
+from lab.session import initialize_session, sanitize_responses
 from lab_config import LAB
 from pages import final, intro, mission_1, mission_2, mission_3, part_1, part_2, part_3, preflight
 
@@ -89,13 +89,29 @@ def run_streamlit_app() -> None:
 
     st.set_page_config(page_title=LAB.title, page_icon="🤖", layout="wide")
     initialize_session(st)
+    st.markdown(
+        """
+        <style>
+        div[data-baseweb="input"]:focus-within,
+        div[data-baseweb="textarea"]:focus-within {
+          border-color: #0f766e !important;
+          box-shadow: 0 0 0 1px #0f766e !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     if not st.session_state.get("responses"):
         saved = load_saved_state()
-        st.session_state["responses"] = dict(saved.get("responses", {}))
+        st.session_state["responses"] = sanitize_responses(dict(saved.get("responses", {})))
         st.session_state["completed_missions"] = list(saved.get("completed_missions", []))
         st.session_state["checked_evidence_ids"] = dict(saved.get("checked_evidence_ids", {}))
         if saved.get("student") and not any(st.session_state["student"].values()):
-            st.session_state["student"] = dict(saved["student"])
+            saved_student = dict(saved["student"])
+            st.session_state["student"] = {
+                "name": str(saved_student.get("name", "")),
+                "email": str(saved_student.get("email", "")),
+            }
 
     with st.sidebar.expander("Instructor controls"):
         expected = os.environ.get(LAB.instructor_password_env, "ros-master")
@@ -107,6 +123,7 @@ def run_streamlit_app() -> None:
         else:
             st.caption("Locked")
 
+    scroll_to_top_if_requested(st)
     render_progress(st)
     PAGES[current_stage(st)](st)
     try:

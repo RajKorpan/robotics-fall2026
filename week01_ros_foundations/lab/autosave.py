@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from lab_config import LAB
+from lab.session import sanitize_responses
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,12 +34,14 @@ def load_saved_state() -> dict[str, Any]:
 
 
 def autosave(st) -> Path:
+    raw_student = dict(st.session_state.get("student", {}))
+    student = {key: str(raw_student.get(key, "")) for key in ("name", "email")}
     payload = {
         "schema_version": 1,
         "lab_id": LAB.id,
         "updated_at": datetime.now(timezone.utc).isoformat(),
-        "student": dict(st.session_state.get("student", {})),
-        "responses": dict(st.session_state.get("responses", {})),
+        "student": student,
+        "responses": sanitize_responses(dict(st.session_state.get("responses", {}))),
         "completed_missions": list(st.session_state.get("completed_missions", [])),
         "checked_evidence_ids": dict(st.session_state.get("checked_evidence_ids", {})),
     }
@@ -54,4 +57,3 @@ def autosave(st) -> Path:
         json.dumps(payload["student"], indent=2), encoding="utf-8"
     )
     return target
-

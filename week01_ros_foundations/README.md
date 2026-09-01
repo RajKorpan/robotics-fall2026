@@ -4,16 +4,16 @@ This individual lab connects three conceptual foundations to a simulated TurtleB
 
 ## Learning sequence
 
-1. **Part 1 — Why robotics software is difficult:** analyze imperfect sensors, timing, distributed programs, hardware assumptions, and consequences in the physical world.
-2. **Part 2 — Robot software architectures:** compare reactive, behavior-based, deliberative, and hybrid systems; reason about arbitration and layered safety.
-3. **Part 3 — What ROS 2 provides:** distinguish middleware, nodes, topics, messages, publishers/subscribers, services, and the ROS graph.
+1. **Part 1 — Why robotics software is difficult:** manipulate toy examples of imperfect sensors, timing delays, distributed failures, and hardware slip.
+2. **Part 2 — Robot software architectures:** watch the same scenario behave under reactive, behavior-based, deliberative, and hybrid control, then run a safety override.
+3. **Part 3 — What ROS 2 provides:** follow topic messages, call a service, break graph connections, and try simulated ROS inspection commands.
 4. **Preflight:** verify the shared ROS 2 Jazzy environment.
 5. **Mission 1 — Observe:** inspect nodes, topics, services, message types, communication paths, and sense–decide–act roles.
 6. **Mission 2 — Control:** predict and execute motion, then compare command timing and expected versus observed behavior.
 7. **Mission 3 — Create behavior:** implement a reactive LiDAR obstacle-stop node and analyze its place in a layered or future hybrid architecture.
 8. **Final synthesis:** connect the three parts to live evidence and the implemented behavior.
 
-The three conceptual parts are required Streamlit activities, not copies of the lecture slides. Their responses autosave and are collected in `student_submission/foundations.md`.
+The first three parts are required, ungraded Streamlit tutorials. They contain demonstrations rather than quiz questions or written-response boxes. Exploration progress autosaves and is collected in `student_submission/foundations.md`.
 
 ## Supported environment
 
