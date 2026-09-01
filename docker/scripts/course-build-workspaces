@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
 
 source /opt/ros/jazzy/setup.bash
+set -u
 labs=(
   week01_ros_foundations
   week03_motion_frames_ai
@@ -22,4 +23,3 @@ for lab in "${labs[@]}"; do
 done
 
 echo "All six ROS lab workspaces built successfully."
-

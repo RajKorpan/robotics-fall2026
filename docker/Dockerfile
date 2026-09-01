@@ -49,9 +49,14 @@ RUN python3 -m venv --system-site-packages /opt/course-venv \
     && /opt/course-venv/bin/python -m pip install --no-cache-dir --upgrade pip \
     && /opt/course-venv/bin/python -m pip install --no-cache-dir -r /tmp/course-requirements.txt
 
-RUN useradd --create-home --uid 1000 --shell /bin/bash student \
+RUN existing_user="$(getent passwd 1000 | cut -d: -f1)" \
+    && if [[ -n "$existing_user" && "$existing_user" != "student" ]]; then \
+         usermod --login student --home /home/student --move-home "$existing_user"; \
+       elif [[ -z "$existing_user" ]]; then \
+         useradd --create-home --uid 1000 --shell /bin/bash student; \
+       fi \
     && mkdir -p /workspace /home/student/.fluxbox \
-    && chown -R student:student /workspace /home/student
+    && chown -R "student:$(id -gn student)" /workspace /home/student
 
 COPY docker/scripts/course-desktop /usr/local/bin/course-desktop
 COPY docker/scripts/course-build-workspaces /usr/local/bin/course-build-workspaces

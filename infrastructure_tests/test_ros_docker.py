@@ -42,6 +42,12 @@ class SharedRosEnvironmentTests(unittest.TestCase):
             "x11vnc",
         ):
             self.assertIn(token, dockerfile)
+        self.assertIn("getent passwd 1000", dockerfile)
+
+    def test_windows_launcher_checks_native_exit_codes(self):
+        launcher = (ROOT / "scripts/ros_course.ps1").read_text(encoding="utf-8")
+        self.assertIn("Assert-DockerSuccess", launcher)
+        self.assertIn("$LASTEXITCODE", launcher)
 
     def test_compose_binds_interfaces_to_localhost(self):
         compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
@@ -58,6 +64,19 @@ class SharedRosEnvironmentTests(unittest.TestCase):
         doctor = (ROOT / "docker/scripts/course-doctor").read_text(encoding="utf-8")
         for lab in ROS_LABS:
             self.assertIn(lab, doctor)
+
+    def test_ros_setup_is_sourced_before_nounset(self):
+        for script in ("course-build-workspaces", "course-doctor", "course-lab"):
+            body = (ROOT / "docker/scripts" / script).read_text(encoding="utf-8")
+            source_position = body.index("source /opt/ros/jazzy/setup.bash")
+            nounset_position = body.index("set -u", source_position)
+            self.assertLess(source_position, nounset_position, script)
+
+    def test_python_ros_packages_declare_ament_python(self):
+        for lab in ROS_LABS:
+            for setup_file in (ROOT / lab / "ros2_ws/src").glob("*/setup.py"):
+                package_xml = (setup_file.parent / "package.xml").read_text(encoding="utf-8")
+                self.assertIn("<build_type>ament_python</build_type>", package_xml, str(setup_file.parent))
 
 
 if __name__ == "__main__":

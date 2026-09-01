@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-set -u
-
 source /opt/ros/jazzy/setup.bash
+set -u
 failures=0
 
 check() {

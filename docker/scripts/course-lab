@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
 
 lab="${1:-}"
 case "$lab" in
@@ -21,6 +21,7 @@ fi
 
 source /opt/ros/jazzy/setup.bash
 source "$setup"
+set -u
 export ROS_DOMAIN_ID="$domain"
 export TURTLEBOT3_MODEL=burger
 

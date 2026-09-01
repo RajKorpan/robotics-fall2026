@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+
+# ROS 2 / colcon generated workspaces
+**/ros2_ws/build/
+**/ros2_ws/install/
+**/ros2_ws/log/
+
+# Lab-generated runtime artifacts
+**/runtime/
+
