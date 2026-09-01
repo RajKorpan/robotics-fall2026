@@ -5545,6 +5545,47 @@ def render_algorithm_comparison(st: Any) -> None:
 SUBMISSIONS_DIR = Path(__file__).resolve().parent / "student_submission"
 MISSION_ORDER = ("mission_1", "mission_2", "mission_3")
 DEFAULT_INSTRUCTOR_PASSWORD = "pendulum-master"
+FINAL_REFLECTION_PROMPTS = (
+    "What did this activity make you think about regarding your own interests in robotics, computing, engineering, or related work?",
+    "How did this activity affect your motivation to do similar kinds of work in the future?",
+    "What value do you see in connecting technical or computing work with human, ethical, or societal considerations?",
+    "What stood out to you about the activity, and why?",
+    "Is there anything else you would like to share about your experience with the activity?",
+)
+
+
+def save_final_course_reflection(text: str) -> Path:
+    words = len(text.split())
+    if not 1 <= words <= 300:
+        raise ValueError("Final reflection must contain 1–300 words.")
+    SUBMISSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# Final reflection", "", "Respond to any or all of these prompts:", "",
+        *(f"{index}. {prompt}" for index, prompt in enumerate(FINAL_REFLECTION_PROMPTS, 1)),
+        "", "## Response", "", text.strip(), "", f"_Word count: {words}_", "",
+    ]
+    path = SUBMISSIONS_DIR / "final_reflection.md"
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return path
+
+
+def render_final_course_reflection(st: Any) -> bool:
+    st.divider()
+    st.subheader("Final reflection")
+    st.write("Write a short reflection of no more than 300 words. You may respond to any or all of the prompts below.")
+    st.markdown("\n".join(f"{index}. {prompt}" for index, prompt in enumerate(FINAL_REFLECTION_PROMPTS, 1)))
+    answer = st.text_area("Your reflection", key="final_course_reflection", height=220)
+    words = len(answer.split())
+    st.caption(f"{words}/300 words")
+    if words == 0:
+        st.info("Complete the reflection before considering the submission finished.")
+        return False
+    if words > 300:
+        st.error(f"Shorten the reflection by {words - 300} words.")
+        return False
+    path = save_final_course_reflection(answer)
+    st.success(f"Reflection automatically saved to `{path.relative_to(Path(__file__).resolve().parent)}`.")
+    return True
 
 
 def instructor_password(st: Any) -> str:
@@ -5950,6 +5991,7 @@ def collect_autosaved_answers(st: Any) -> dict[str, Any]:
                     "student": saved.get("student", {}),
                     "checkins": saved.get("checkins", {}),
                     "mission_explanations": saved.get("mission_explanations", {}),
+                    "final_reflection": saved.get("final_reflection", ""),
                 }
         except (OSError, ValueError, TypeError):
             pass
@@ -5996,10 +6038,14 @@ def collect_autosaved_answers(st: Any) -> dict[str, Any]:
         if not any(mission_answers.values()):
             explanations.pop(mission_id, None)
 
+    final_reflection = str(
+        st.session_state.get("final_course_reflection", accumulated.get("final_reflection", ""))
+    ).strip()
     normalized = {
         "student": student,
         "checkins": checkins,
         "mission_explanations": explanations,
+        "final_reflection": final_reflection,
     }
     st.session_state["_autosaved_answers"] = normalized
     return normalized
@@ -6038,6 +6084,9 @@ def autosaved_answers_markdown(answers: dict[str, Any]) -> str:
                     lines.append(f"**{label.replace('_', ' ').title()}:** {value}\n")
     else:
         lines.append("_(none yet)_\n")
+    lines.append("## Final reflection\n")
+    lines.append(answers.get("final_reflection") or "_(not completed yet)_")
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -6311,7 +6360,13 @@ def render_mission_header(st: Any, context: dict[str, Any]) -> None:
         unsafe_allow_html=True,
     )
 
-    if is_bonus and not st.session_state.get("bonus_task"):
+    reflection_ready = True
+    if is_bonus:
+        reflection_ready = render_final_course_reflection(st)
+
+    if is_bonus and not reflection_ready:
+        st.caption("Optional bonus challenges unlock after the required final reflection is complete.")
+    elif is_bonus and not st.session_state.get("bonus_task"):
         st.markdown("**Pick a bonus challenge:**")
         pick_columns = st.columns(3)
         with pick_columns[0]:

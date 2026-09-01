@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from lab.autosave import submission_root
+from lab.final_reflection import render_final_reflection, write_final_reflection
 from lab.navigation import set_stage
 from lab.submissions import write_manifest
 from lab_config import LAB
@@ -16,6 +17,9 @@ def render(st) -> None:
             set_stage(st, "lab")
         return
 
+    if not render_final_reflection(st):
+        return
+    write_final_reflection(st)
     manifest = write_manifest(st)
     st.success("The Git-ready submission is complete.")
     st.code(str(submission_root()))
@@ -28,4 +32,3 @@ def render(st) -> None:
         "git push\n"
         "```"
     )
-

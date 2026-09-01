@@ -57,8 +57,13 @@ student_submission/
 │   └── run.csv
 ├── mission_2/
 ├── mission_3/
+├── final_reflection.md
 └── manifest.json
 ```
 
 Binary evidence such as GIFs can be placed in `RunResult.artifacts`; the submission layer writes it to the mission's `activity_gifs/` directory.
 
+
+## Required final reflection
+
+After the technical work, complete the individual [final reflection](../FINAL_REFLECTION.md). Respond to any or all of the five prompts in 1–300 words. A blank response or a response over 300 words cannot finalize the submission. The app saves the response as `student_submission/final_reflection.md`, separate from technical syntheses and mission explanations.

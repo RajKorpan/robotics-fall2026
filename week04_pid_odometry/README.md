@@ -102,3 +102,8 @@ Keep collection outside Streamlit unless a dedicated backend has been added. For
 4. Students commit and push that folder, then submit the GitHub commit link.
 
 This keeps grading artifacts tied to each student and avoids relying on temporary server-side files.
+
+
+## Required final reflection
+
+After the technical work, complete the individual [final reflection](../FINAL_REFLECTION.md). Respond to any or all of the five prompts in 1–300 words. A blank response or a response over 300 words cannot finalize the submission. The app saves the response as `student_submission/final_reflection.md`, separate from technical syntheses and mission explanations.

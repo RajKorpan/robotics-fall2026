@@ -100,3 +100,8 @@ Streamlit Cloud submission collection.
 6. Switch to DQN after the audience understands action values.
 7. Use "What the agent learned" to compare the Q-table's buckets with the DQN's continuous value map.
 8. Use the evaluation rollout to connect the return curve to the physical balancing behavior.
+
+
+## Required final reflection
+
+After the technical work, complete the individual [final reflection](../FINAL_REFLECTION.md). Respond to any or all of the five prompts in 1–300 words. A blank response or a response over 300 words cannot finalize the submission. The app saves the response as `student_submission/final_reflection.md`, separate from technical syntheses and mission explanations.

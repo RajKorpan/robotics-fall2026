@@ -31,6 +31,12 @@ python3 -m pip install --user -r requirements.txt
 chmod +x scripts/*.sh
 ```
 
+
+## Required final reflection
+
+After the technical work, complete the individual [final reflection](../FINAL_REFLECTION.md). Respond to any or all of the five prompts in 1–300 words. A blank response or a response over 300 words cannot finalize the submission. The app saves the response as `student_submission/final_reflection.md`, separate from technical syntheses and mission explanations.
+
+
 Place the frozen model at `assets/models/detector.onnx`. Before release, record its source, version, license, input size, class list, and SHA-256 checksum in `assets/models/README.md`. Validate the node against the exact artifact. Do not rely on a classroom-time download.
 
 Generate the deterministic classical condition images:

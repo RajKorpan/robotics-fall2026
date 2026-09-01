@@ -143,3 +143,8 @@ export WEEK01_INSTRUCTOR_PASSWORD="your-password"
 ```
 
 Instructor navigation bypasses page order but does not fabricate mission evidence.
+
+
+## Required final reflection
+
+After the technical work, complete the individual [final reflection](../FINAL_REFLECTION.md). Respond to any or all of the five prompts in 1–300 words. A blank response or a response over 300 words cannot finalize the submission. The app saves the response as `student_submission/final_reflection.md`, separate from technical syntheses and mission explanations.

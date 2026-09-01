@@ -28,6 +28,12 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
+
+## Required final reflection
+
+After the technical work, complete the individual [final reflection](../FINAL_REFLECTION.md). Respond to any or all of the five prompts in 1–300 words. A blank response or a response over 300 words cannot finalize the submission. The app saves the response as `student_submission/final_reflection.md`, separate from technical syntheses and mission explanations.
+
+
 On macOS/Linux, activate with `source .venv/bin/activate`.
 
 ## What students manipulate
@@ -73,4 +79,3 @@ python app.py --smoke-test
 python -m unittest discover -s tests -v
 python -m compileall -q .
 ```
-

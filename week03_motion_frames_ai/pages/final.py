@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from lab.autosave import submission_root
+from lab.final_reflection import render_final_reflection, write_final_reflection
 from lab.submissions import write_manifest
 from lab.ui import text_response
 from lab_config import LAB
@@ -23,9 +24,11 @@ def render(st) -> None:
         text_response(st, "final.frame_insight", "What frame mistake now seems most likely in future ROS work?"),
         text_response(st, "final.ai_judgment", "What did you—not the AI assistant—contribute to the final program's correctness?"),
     ]
-    if len(synthesis.strip()) < 250 or not all(value.strip() for value in reflections):
-        st.info("Complete the synthesis (at least 250 characters) and all reflections.")
+    course_reflection_ready = render_final_reflection(st)
+    if len(synthesis.strip()) < 250 or not all(value.strip() for value in reflections) or not course_reflection_ready:
+        st.info("Complete the synthesis, technical reflections, and final reflection.")
         return
+    write_final_reflection(st)
     manifest = write_manifest(st)
     st.success("Your individual Git-ready submission is complete.")
     st.code(str(submission_root()))
@@ -36,4 +39,3 @@ def render(st) -> None:
         "git push",
         language="bash",
     )
-

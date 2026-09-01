@@ -1516,6 +1516,27 @@ def build_final_submission_zip(
             for k, v in expl.items():
                 md_lines.append(f"**{k}**: {v or '(no answer)'}\n")
         archive.writestr("explanation.md", "\n".join(md_lines))
+        reflection = str(all_checkins.get("final_reflection", "")).strip()
+        reflection_words = len(reflection.split())
+        reflection_lines = [
+            "# Final reflection",
+            "",
+            "Respond to any or all of these prompts:",
+            "",
+            "1. What did this activity make you think about regarding your own interests in robotics, computing, engineering, or related work?",
+            "2. How did this activity affect your motivation to do similar kinds of work in the future?",
+            "3. What value do you see in connecting technical or computing work with human, ethical, or societal considerations?",
+            "4. What stood out to you about the activity, and why?",
+            "5. Is there anything else you would like to share about your experience with the activity?",
+            "",
+            "## Response",
+            "",
+            reflection,
+            "",
+            f"_Word count: {reflection_words}_",
+            "",
+        ]
+        archive.writestr("final_reflection.md", "\n".join(reflection_lines))
     return buffer.getvalue()
 
 
@@ -3280,12 +3301,23 @@ def render_export_page() -> None:
             set_stage("lab")
 
     # Final reflection
-    reflection = render_checkin(
-        key="final_reflection",
-        title="Put the two skills together",
-        prompt="How do PID and odometry depend on each other on a real robot?",
-        placeholder="Odometry estimates the robot's pose, and PID uses that estimate to...",
+    st.subheader("Final reflection")
+    st.write("Write a short reflection of no more than 300 words. You may respond to any or all of the prompts below.")
+    st.markdown(
+        "1. What did this activity make you think about regarding your own interests in robotics, computing, engineering, or related work?\n"
+        "2. How did this activity affect your motivation to do similar kinds of work in the future?\n"
+        "3. What value do you see in connecting technical or computing work with human, ethical, or societal considerations?\n"
+        "4. What stood out to you about the activity, and why?\n"
+        "5. Is there anything else you would like to share about your experience with the activity?"
     )
+    reflection_key = checkin_key("final_reflection", "note")
+    reflection_text = st.text_area("Your reflection", key=reflection_key, height=220)
+    reflection_words = len(reflection_text.split())
+    st.caption(f"{reflection_words}/300 words")
+    if reflection_words == 0:
+        st.info("Complete the reflection before saving.")
+    elif reflection_words > 300:
+        st.error(f"Shorten the reflection by {reflection_words - 300} words.")
 
     # Gather all check-in answers
     checkin_keys = [
@@ -3352,7 +3384,7 @@ def render_export_page() -> None:
         "section": section.strip(),
     }
 
-    all_answers_ready = reflection["complete"]
+    all_answers_ready = 1 <= reflection_words <= 300
 
     if st.button(
         "Save complete submission folder",

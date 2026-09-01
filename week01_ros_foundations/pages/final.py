@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from lab.autosave import submission_root
+from lab.final_reflection import render_final_reflection, write_final_reflection
 from lab.session import response, set_response
 from lab.submissions import write_manifest
 from lab.ui import text_response
@@ -27,10 +28,12 @@ def render(st) -> None:
         text_response(st, "final.control_evidence", "What evidence shows your node—not teleoperation—controlled the robot?"),
         text_response(st, "final.hardware_next", "What would you test next before using the behavior on hardware?"),
     ]
-    ready = len(synthesis.strip()) >= 250 and all(answer.strip() for answer in reflections)
+    course_reflection_ready = render_final_reflection(st)
+    ready = len(synthesis.strip()) >= 250 and all(answer.strip() for answer in reflections) and course_reflection_ready
     if not ready:
-        st.info("Complete the synthesis (at least 250 characters) and all exit reflections.")
+        st.info("Complete the synthesis, technical exit reflections, and final reflection.")
         return
+    write_final_reflection(st)
     manifest = write_manifest(st)
     st.success("Your individual Git-ready submission is complete.")
     st.code(str(submission_root()))
@@ -41,4 +44,3 @@ def render(st) -> None:
         "git push",
         language="bash",
     )
-
