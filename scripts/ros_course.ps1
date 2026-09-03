@@ -31,7 +31,7 @@ try {
             if ([string]::IsNullOrWhiteSpace($Lab)) { throw "Provide a lab directory, for example: week01_ros_foundations" }
             docker compose up -d
             Assert-DockerSuccess "starting the course environment"
-            docker compose exec course-ros course-lab $Lab
+            docker compose exec course-ros bash /workspace/docker/scripts/course-lab $Lab
             Assert-DockerSuccess "starting $Lab"
         }
         "stop" { docker compose down; Assert-DockerSuccess "stopping the course environment" }

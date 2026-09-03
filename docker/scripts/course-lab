@@ -25,6 +25,13 @@ set -u
 export ROS_DOMAIN_ID="$domain"
 export TURTLEBOT3_MODEL=burger
 
+active_env=/tmp/course-active-env.sh
+printf 'export COURSE_ACTIVE_LAB=%q\n' "$lab" >"$active_env"
+printf 'export COURSE_LAB_ROOT=%q\n' "$root" >>"$active_env"
+printf 'export ROS_DOMAIN_ID=%q\n' "$domain" >>"$active_env"
+printf 'export TURTLEBOT3_MODEL=%q\n' "burger" >>"$active_env"
+printf 'source %q\n' "$setup" >>"$active_env"
+
 pid_file=/tmp/course-streamlit.pid
 if [[ -f "$pid_file" ]]; then
   old_pid="$(cat "$pid_file")"
@@ -46,9 +53,32 @@ fi
   echo $! >"$pid_file"
 )
 
-DISPLAY="${DISPLAY:-:1}" nohup xterm -display "${DISPLAY:-:1}" -T "$lab" -geometry 120x34+70+70 -e bash -lc \
-  "source /opt/ros/jazzy/setup.bash; source '$setup'; export ROS_DOMAIN_ID='$domain'; export TURTLEBOT3_MODEL=burger; cd '$root'; printf '\nActive lab: $lab\nROS_DOMAIN_ID=$domain\n\n'; exec bash" >/tmp/course-xterm.log 2>&1 &
+streamlit_pid="$(cat "$pid_file")"
+guide_ready=false
+for _ in $(seq 1 60); do
+  if ! kill -0 "$streamlit_pid" 2>/dev/null; then
+    echo "The lab guide stopped during startup." >&2
+    echo "Streamlit log:" >&2
+    cat /tmp/course-streamlit.log >&2
+    exit 4
+  fi
+  if curl --fail --silent --show-error --max-time 1 http://127.0.0.1:8501/ >/dev/null 2>&1; then
+    guide_ready=true
+    break
+  fi
+  sleep 0.25
+done
 
-echo "Started $lab"
+if [[ "$guide_ready" != true ]]; then
+  echo "The lab guide did not respond on port 8501 within 15 seconds." >&2
+  echo "Streamlit log:" >&2
+  cat /tmp/course-streamlit.log >&2
+  exit 5
+fi
+
+DISPLAY="${DISPLAY:-:1}" nohup xterm -display "${DISPLAY:-:1}" -T "$lab" -geometry 120x34+70+70 -e bash -lc \
+  "source /usr/local/bin/course-shell-init; cd '$root'; printf '\nActive lab: $lab\nROS_DOMAIN_ID=$domain\n\n'; exec bash" >/tmp/course-xterm.log 2>&1 &
+
+echo "Started $lab and confirmed that the guide is responding."
 echo "Guide:  http://localhost:8501"
 echo "Desktop: http://localhost:6080/vnc.html?autoconnect=1&resize=remote"

@@ -11,7 +11,12 @@ def render(st) -> None:
     result = preflight_result()
     checks = result.get("checks", [])
     if checks:
-        st.dataframe(checks, hide_index=True, width="stretch")
+        for check in checks:
+            if check.get("passed"):
+                status = ":green[✔ Passed]"
+            else:
+                status = ":red[✘ Not ready]"
+            st.markdown(f"{status}  **{check.get('check', 'Check')}**  `{check.get('detail', '')}`")
         ready = all(check.get("passed") for check in checks)
         if ready:
             st.success("Environment ready.")

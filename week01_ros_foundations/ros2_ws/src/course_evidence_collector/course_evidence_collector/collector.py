@@ -27,6 +27,11 @@ def atomic_json(path: Path, payload) -> None:
     temporary.replace(path)
 
 
+def endpoint_node_name(endpoint) -> str:
+    namespace = str(endpoint.node_namespace).rstrip("/")
+    return f"{namespace}/{endpoint.node_name}" if namespace else f"/{endpoint.node_name}"
+
+
 def graph_snapshot_payload(nodes, topics, services, samples, captured_at=None) -> dict:
     return {
         "schema_version": 2,
@@ -89,10 +94,26 @@ class EvidenceCollector(Node):
         for name, namespace in self.get_node_names_and_namespaces():
             full_name = f"{namespace.rstrip('/')}/{name}" if namespace != "/" else f"/{name}"
             nodes.append({"name": full_name})
-        topics = [
-            {"name": name, "types": list(types)}
-            for name, types in self.get_topic_names_and_types()
-        ]
+        topics = []
+        for name, types in self.get_topic_names_and_types():
+            try:
+                publishers = sorted({
+                    endpoint_node_name(endpoint)
+                    for endpoint in self.get_publishers_info_by_topic(name)
+                })
+                subscribers = sorted({
+                    endpoint_node_name(endpoint)
+                    for endpoint in self.get_subscriptions_info_by_topic(name)
+                })
+            except (AttributeError, RuntimeError):
+                publishers = []
+                subscribers = []
+            topics.append({
+                "name": name,
+                "types": list(types),
+                "publishers": publishers,
+                "subscribers": subscribers,
+            })
         services = [
             {"name": name, "types": list(types)}
             for name, types in self.get_service_names_and_types()

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def evidence_root() -> Path:
+    override = os.environ.get("WEEK01_EVIDENCE_ROOT")
+    if override:
+        return Path(override)
     return ROOT / LAB.evidence_directory
 
 

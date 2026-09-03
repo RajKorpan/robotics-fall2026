@@ -8,9 +8,9 @@ This individual lab connects three conceptual foundations to a simulated TurtleB
 2. **Part 2 — Robot software architectures:** watch the same scenario behave under reactive, behavior-based, deliberative, and hybrid control, then run a safety override.
 3. **Part 3 — What ROS 2 provides:** follow topic messages, call a service, break graph connections, and try simulated ROS inspection commands.
 4. **Preflight:** verify the shared ROS 2 Jazzy environment.
-5. **Mission 1 — Observe:** inspect nodes, topics, services, message types, communication paths, and sense–decide–act roles.
+5. **Mission 1 — Observe:** learn the simulation and ROS graph vocabulary, then follow a guided tour of four nodes, key topics, and two communication paths.
 6. **Mission 2 — Control:** predict and execute motion, then compare command timing and expected versus observed behavior.
-7. **Mission 3 — Create behavior:** implement a reactive LiDAR obstacle-stop node and analyze its place in a layered or future hybrid architecture.
+7. **Mission 3 - Create behavior:** implement and test the decision functions used by a supplied LiDAR obstacle-stop ROS 2 node.
 8. **Final synthesis:** connect the three parts to live evidence and the implemented behavior.
 
 The first three parts are required, ungraded Streamlit tutorials. They contain demonstrations rather than quiz questions or written-response boxes. Exploration progress autosaves and is collected in `student_submission/foundations.md`.
@@ -21,7 +21,7 @@ The recommended environment is the shared course Docker image on Windows, macOS,
 
 Native Ubuntu 24.04 with ROS 2 Jazzy remains a supported performance fallback. Native ROS installation on Windows and macOS is not part of the supported course workflow.
 
-The ROS packages are deliberately separated from the Streamlit application. ROS writes machine-readable graph, service, timing, and behavior evidence to `runtime/evidence/`; Streamlit reads that evidence and creates the durable `student_submission/` record.
+The ROS packages are deliberately separated from the Streamlit application. ROS writes machine-readable graph, timing, and behavior evidence to `runtime/evidence/`; Streamlit reads that evidence and creates the durable `student_submission/` record.
 
 ## One-time student setup — Windows, macOS, or Linux
 
@@ -78,12 +78,11 @@ The course launcher already sources ROS, selects `ROS_DOMAIN_ID=24`, sets the Tu
 
 ## Mission 3 starter behavior
 
-The files below are intentionally incomplete:
+The decision file below is intentionally incomplete:
 
 - `ros2_ws/src/week01_behavior/week01_behavior/decision.py`
-- `ros2_ws/src/week01_behavior/test/test_decision.py`
 
-Students implement the pure decision helpers and may add tests. The ROS wrapper already includes parameters, a subscriber, a publisher, command bounding, and a stale-scan watchdog so students can focus on the publish/subscribe behavior.
+Students implement the two pure decision helpers and create `test/test_student_decision.py`. The supplied `test/test_decision.py` provides additional checks. The ROS wrapper already includes parameters, a subscriber, a publisher, command bounding, and a stale-scan watchdog so students can focus on interpreting sensor data and making a safe move-or-stop decision.
 
 Run its checks with:
 

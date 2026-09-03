@@ -32,44 +32,73 @@ def save_mission(mission_id: str, evidence: dict[str, Any], responses: dict[str,
         lines.extend([f"## {key.replace('_', ' ').title()}", "", str(value), ""])
     (target / "explanation.md").write_text("\n".join(lines), encoding="utf-8")
     if mission_id == "mission_1":
-        _write_ros_system_diagram(target, responses)
+        _write_ros_system_diagram(target, responses, evidence.get("graph", {}))
     return target
 
 
-def _write_ros_system_diagram(target: Path, responses: dict[str, Any]) -> Path:
+def _write_ros_system_diagram(
+    target: Path,
+    responses: dict[str, Any],
+    graph: dict[str, Any] | None = None,
+) -> Path:
     target.mkdir(parents=True, exist_ok=True)
-    roles = responses.get("mission_1.node_roles", {})
-    pipeline_roles = responses.get("mission_1.pipeline_roles", {})
-    service = responses.get("mission_1.service_example", {})
+    graph = graph or {}
+    guided_checks = responses.get("mission_1.guided_checks", {})
+    trace_topics = {"/scan", "/odom", "/student_cmd_vel", "/cmd_vel", "/tf"}
+    topics = [
+        item for item in graph.get("topics", [])
+        if isinstance(item, dict) and item.get("name") in trace_topics
+    ]
+    node_names = {
+        "/course_cmd_vel_guard",
+        "/course_evidence_collector",
+        "/ros_gz_bridge",
+        "/rviz2",
+    }
+    for topic in topics:
+        node_names.update(str(value) for value in topic.get("publishers", []))
+        node_names.update(str(value) for value in topic.get("subscribers", []))
+    node_ids = {name: f"n{index}" for index, name in enumerate(sorted(node_names))}
     lines = [
         "# Observed ROS 2 system diagram",
         "",
         "```mermaid",
         "flowchart LR",
-        '  command["Teleoperation or obstacle behavior"] -->|/student_cmd_vel: Twist| guard["Command guard"]',
-        '  guard -->|/cmd_vel: Twist| robot["Simulated robot and controller"]',
-        '  robot -->|/scan: LaserScan| behavior["Behavior and visualization"]',
-        '  robot -->|/odom: Odometry| evidence["Evidence and visualization"]',
+    ]
+    for name, node_id in node_ids.items():
+        lines.append(f'  {node_id}["{name}"]')
+    for index, topic in enumerate(topics):
+        topic_id = f"t{index}"
+        topic_name = str(topic.get("name", ""))
+        topic_type = ", ".join(str(value).split("/")[-1] for value in topic.get("types", []))
+        lines.append(f'  {topic_id}(["{topic_name}<br/>{topic_type}"])')
+        for publisher in topic.get("publishers", []):
+            if str(publisher) in node_ids:
+                lines.append(f"  {node_ids[str(publisher)]} -->|publishes| {topic_id}")
+        for subscriber in topic.get("subscribers", []):
+            if str(subscriber) in node_ids:
+                lines.append(f"  {topic_id} -->|subscribes| {node_ids[str(subscriber)]}")
+    lines.extend([
         "```",
         "",
-        "The diagram records the verified command and sensing paths. It is not evidence of a planner unless a planner node was observed.",
+        "This diagram is generated from the captured publisher and subscriber endpoints. A missing arrow records a missing live endpoint, not an assumed connection.",
         "",
-        "## Classified live nodes",
+        "## Guided terminal observations",
         "",
-        "| Node | Subsystem role | Sense–decide–act role |",
-        "|---|---|---|",
-    ]
-    for node in sorted(set(roles) | set(pipeline_roles)):
-        lines.append(f"| {node} | {roles.get(node, '')} | {pipeline_roles.get(node, '')} |")
-    lines.extend([
-        "",
-        "## Observed service example",
-        "",
-        f"- Name: {service.get('name', '')}",
-        f"- Type: {service.get('type', '')}",
-        f"- Likely purpose: {service.get('purpose', '')}",
-        "",
+        "| Observation | Completed |",
+        "|---|---|",
     ])
+    labels = {
+        "node_list": "Listed the running nodes",
+        "guard_info": "Inspected the command guard",
+        "bridge_info": "Inspected the simulator bridge",
+        "scan_info": "Inspected the scan connections",
+        "scan_message": "Viewed one scan message",
+        "command_topics": "Compared proposed and approved command topics",
+    }
+    for key, label in labels.items():
+        lines.append(f"| {label} | {'Yes' if guided_checks.get(key) else 'No'} |")
+    lines.append("")
     path = target / "ros_system_diagram.md"
     path.write_text("\n".join(lines), encoding="utf-8")
     return path
@@ -109,6 +138,7 @@ def snapshot_student_source() -> Path:
         "week01_behavior/decision.py",
         "week01_behavior/obstacle_guard.py",
         "test/test_decision.py",
+        "test/test_student_decision.py",
     ):
         source_file = source / relative
         if source_file.exists():

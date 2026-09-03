@@ -4,6 +4,20 @@ from typing import Any
 
 
 TUTORIAL_ACTIVITY_KEYS = {"part_1.activity", "part_2.activity", "part_3.activity"}
+RETIRED_MISSION_2_KEYS = {
+    "mission_2.predictions_locked_at",
+    "mission_2.target_plan",
+    "mission_2.target_reached",
+    "mission_2.command_path",
+    "mission_2.velocity_vs_destination",
+    "mission_2.combined_velocity",
+    "mission_2.least_accurate",
+    "mission_2.command_vs_motion",
+    "mission_2.safe_stop",
+    "mission_2.timing_evidence",
+    "mission_2.delay_risk",
+    "mission_2.stale_command",
+}
 
 
 def sanitize_responses(values: dict[str, Any]) -> dict[str, Any]:
@@ -11,7 +25,8 @@ def sanitize_responses(values: dict[str, Any]) -> dict[str, Any]:
     return {
         key: value
         for key, value in values.items()
-        if not key.startswith(("part_1.", "part_2.", "part_3.")) or key in TUTORIAL_ACTIVITY_KEYS
+        if (not key.startswith(("part_1.", "part_2.", "part_3.")) or key in TUTORIAL_ACTIVITY_KEYS)
+        and key not in RETIRED_MISSION_2_KEYS
     }
 
 

@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fluxbox \
     git \
     mesa-utils \
+    nano \
     novnc \
     python3-colcon-common-extensions \
     python3-numpy \
@@ -62,7 +63,9 @@ COPY docker/scripts/course-desktop /usr/local/bin/course-desktop
 COPY docker/scripts/course-build-workspaces /usr/local/bin/course-build-workspaces
 COPY docker/scripts/course-doctor /usr/local/bin/course-doctor
 COPY docker/scripts/course-lab /usr/local/bin/course-lab
-RUN chmod +x /usr/local/bin/course-desktop /usr/local/bin/course-build-workspaces /usr/local/bin/course-doctor /usr/local/bin/course-lab
+COPY docker/scripts/course-shell-init /usr/local/bin/course-shell-init
+RUN chmod +x /usr/local/bin/course-desktop /usr/local/bin/course-build-workspaces /usr/local/bin/course-doctor /usr/local/bin/course-lab /usr/local/bin/course-shell-init \
+    && printf '\n# Load the active robotics course environment in every interactive terminal.\nsource /usr/local/bin/course-shell-init\n' >> /home/student/.bashrc
 
 USER student
 WORKDIR /workspace

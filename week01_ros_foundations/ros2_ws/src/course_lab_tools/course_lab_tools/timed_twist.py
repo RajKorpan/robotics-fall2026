@@ -29,10 +29,12 @@ def yaw_from_quaternion(orientation) -> float:
 
 def timing_metrics(requested_duration: float, started_at: float | None, stopped_at: float | None, linear_x: float) -> dict:
     actual = stopped_at - started_at if started_at is not None and stopped_at is not None else None
+    commanded_path_length = abs(linear_x) * requested_duration
     return {
         "actual_command_duration": actual,
         "duration_error": actual - requested_duration if actual is not None else None,
-        "expected_linear_travel": abs(linear_x) * requested_duration,
+        "commanded_path_length": commanded_path_length,
+        "expected_linear_travel": commanded_path_length,
     }
 
 
@@ -59,15 +61,26 @@ class TimedTwist(Node):
         self.started_at_utc = None
         self.stopped_at = None
         self.stopped_at_utc = None
+        self.settle_started_at = None
+        self.observed_path_length = 0.0
+        self.last_path_pose = None
         self.done = False
         self.stop_sent = False
 
     def on_odom(self, message: Odometry) -> None:
-        self.latest_pose = {
+        pose = {
             "x": message.pose.pose.position.x,
             "y": message.pose.pose.position.y,
             "theta": yaw_from_quaternion(message.pose.pose.orientation),
         }
+        if self.started_at is not None and self.last_path_pose is not None:
+            self.observed_path_length += math.hypot(
+                pose["x"] - self.last_path_pose["x"],
+                pose["y"] - self.last_path_pose["y"],
+            )
+        self.latest_pose = pose
+        if self.started_at is not None:
+            self.last_path_pose = dict(pose)
 
     def tick(self) -> None:
         if self.latest_pose is None:
@@ -76,6 +89,7 @@ class TimedTwist(Node):
             self.started_at = time.monotonic()
             self.started_at_utc = datetime.now(timezone.utc).isoformat()
             self.start_pose = dict(self.latest_pose)
+            self.last_path_pose = dict(self.latest_pose)
             self.get_logger().info(f"Starting {self.trial_type} for {self.duration:.2f}s")
         elapsed = time.monotonic() - self.started_at
         if elapsed < self.duration:
@@ -85,11 +99,15 @@ class TimedTwist(Node):
             self.publisher.publish(message)
             return
         self.publisher.publish(Twist())
-        self.stop_sent = True
-        self.stopped_at = time.monotonic()
-        self.stopped_at_utc = datetime.now(timezone.utc).isoformat()
-        self.end_pose = dict(self.latest_pose)
-        self.done = True
+        if self.stopped_at is None:
+            self.stop_sent = True
+            self.stopped_at = time.monotonic()
+            self.stopped_at_utc = datetime.now(timezone.utc).isoformat()
+            self.settle_started_at = self.stopped_at
+            return
+        if time.monotonic() - self.settle_started_at >= 0.5:
+            self.end_pose = dict(self.latest_pose)
+            self.done = True
 
     def result(self) -> dict:
         start = self.start_pose or {"x": 0.0, "y": 0.0, "theta": 0.0}
@@ -105,6 +123,7 @@ class TimedTwist(Node):
             "command_started_at": self.started_at_utc,
             "zero_command_sent_at": self.stopped_at_utc,
             **timing,
+            "observed_path_length": self.observed_path_length,
             "start_pose": start,
             "end_pose": end,
             "displacement": observed_displacement,

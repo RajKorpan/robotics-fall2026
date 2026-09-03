@@ -35,6 +35,23 @@ class SharedRosEnvironmentTests(unittest.TestCase):
         self.assertIn('  nohup /opt/course-venv/bin/python -m streamlit run app.py', launcher)
         self.assertIn('  echo $! >"$pid_file"', launcher)
 
+    def test_lab_launcher_waits_for_the_guide(self):
+        launcher = (ROOT / "docker/scripts/course-lab").read_text(encoding="utf-8")
+        self.assertIn("curl --fail --silent --show-error", launcher)
+        self.assertIn("guide_ready=true", launcher)
+        self.assertIn("cat /tmp/course-streamlit.log", launcher)
+        self.assertIn("confirmed that the guide is responding", launcher)
+
+    def test_new_terminals_load_the_active_ros_lab(self):
+        dockerfile = (ROOT / "docker/Dockerfile").read_text(encoding="utf-8")
+        launcher = (ROOT / "docker/scripts/course-lab").read_text(encoding="utf-8")
+        shell_init = (ROOT / "docker/scripts/course-shell-init").read_text(encoding="utf-8")
+        self.assertIn("source /usr/local/bin/course-shell-init", dockerfile)
+        self.assertIn("/tmp/course-active-env.sh", launcher)
+        self.assertIn("ROS_DOMAIN_ID", launcher)
+        self.assertIn("source /opt/ros/jazzy/setup.bash", shell_init)
+        self.assertIn("source /tmp/course-active-env.sh", shell_init)
+
     def test_dockerfile_has_course_dependencies(self):
         dockerfile = (ROOT / "docker/Dockerfile").read_text(encoding="utf-8")
         for token in (

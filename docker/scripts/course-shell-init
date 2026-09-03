@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+# This file is sourced by interactive terminals. It intentionally does not
+# change shell error settings or the terminal's current directory.
+if [[ -f /opt/ros/jazzy/setup.bash ]]; then
+  source /opt/ros/jazzy/setup.bash
+fi
+
+if [[ -f /tmp/course-active-env.sh ]]; then
+  source /tmp/course-active-env.sh
+fi

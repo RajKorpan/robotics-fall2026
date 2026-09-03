@@ -24,47 +24,64 @@ PAGES = {
 
 
 def run_smoke_test() -> None:
+    import tempfile
     from pathlib import Path
     from missions import mission_1 as m1, mission_2 as m2, mission_3 as m3
 
     graph = {
         "captured_at": "2026-08-31T00:00:00Z",
-        "nodes": [{"name": f"/node_{index}"} for index in range(5)] + [{"name": "/obstacle_guard"}],
-        "topics": [
-            {"name": name, "types": [kind]} for name, kind in m1.REQUIRED_TOPICS.items()
+        "nodes": [
+            {"name": "/course_cmd_vel_guard"},
+            {"name": "/course_evidence_collector"},
+            {"name": "/ros_gz_bridge"},
+            {"name": "/rviz2"},
         ],
-        "services": [{"name": "/reset_world", "types": ["std_srvs/srv/Empty"]}],
+        "topics": [
+            {
+                "name": name,
+                "types": [kind],
+                "publishers": ["/sensor"] if name in ("/scan", "/odom") else ["/guard"] if name == "/cmd_vel" else [],
+                "subscribers": ["/behavior"] if name in ("/scan", "/odom") else ["/guard"] if name == "/student_cmd_vel" else ["/controller"],
+            }
+            for name, kind in m1.REQUIRED_TOPICS.items()
+        ],
     }
     responses = {
-        "mission_1.node_roles": {f"/node_{i}": "Infrastructure" for i in range(5)},
-        "mission_1.pipeline_roles": {f"/node_{i}": "Support" for i in range(5)},
-        "mission_1.topic_types": dict(m1.REQUIRED_TOPICS),
-        "mission_1.connections": dict(m1.REQUIRED_CONNECTION_ANSWERS),
-        "mission_1.service_example": {"name": "/reset_world", "type": "std_srvs/srv/Empty", "purpose": "Reset simulation state"},
-        **{f"mission_1.{key}": "Complete explanation" for key in m1.REFLECTION_KEYS},
+        "mission_1.guided_checks": {key: True for key in m1.GUIDED_CHECKS},
+        "mission_1.scan_observation": "I found the ranges field, which contains LiDAR distances in meters.",
+        **{f"mission_1.{key}": "A complete explanation grounded in several live nodes, topics, and endpoint relationships." for key in m1.SYNTHESIS_KEYS},
     }
     assert m1.evaluate(graph, responses).passed
+    trial_specs = {
+        "straight": (0.15, 0.0, 3.0),
+        "rotation": (0.0, 0.5, 3.0),
+        "curve": (0.15, -0.4, 4.0),
+        "curve_modified": (0.12, 0.6, 4.0),
+    }
     trials = [
         {
             "trial_type": kind,
             "captured_at": "2026-08-31T00:01:00Z",
             "completed": True,
             "stop_sent": True,
-            "linear_x": 0.1,
-            "angular_z": 0.2,
+            "linear_x": values[0],
+            "angular_z": values[1],
+            "duration": values[2],
             "command_started_at": "2026-08-31T00:00:57Z",
             "zero_command_sent_at": "2026-08-31T00:01:00Z",
             "actual_command_duration": 3.0,
             "duration_error": 0.0,
+            "observed_path_length": 0.02 if kind == "rotation" else 0.4,
+            "displacement": 0.01 if kind == "rotation" else 0.3,
+            "heading_change": 1.0 if kind in ("rotation", "curve", "curve_modified") else 0.01,
         }
-        for kind in (*m2.TRIAL_TYPES, "curve_modified")
+        for kind, values in trial_specs.items()
     ]
     responses.update({
-        "mission_2.predictions": {kind: "Prediction" for kind in (*m2.TRIAL_TYPES, "curve_modified")},
-        "mission_2.predictions_locked_at": "2026-08-31T00:00:00Z",
-        "mission_2.target_reached": True,
-        "mission_2.command_path": "A detailed command path explanation " * 4,
-        **{f"mission_2.{key}": "Complete explanation" for key in m2.REFLECTION_KEYS},
+        "mission_2.predictions": {kind: "A complete prediction written before running this motion trial." for kind in m2.TRIAL_TYPES},
+        "mission_2.prediction_locks": {kind: "2026-08-31T00:00:00Z" for kind in m2.TRIAL_TYPES},
+        "mission_2.modified_settings": {"linear_x": 0.12, "angular_z": 0.6, "duration": 4.0},
+        **{f"mission_2.{key}": "A complete explanation grounded in the recorded measurements and safety behavior." for key in m2.SYNTHESIS_KEYS},
     })
     assert m2.evaluate(trials, responses).passed
     behavior = {
@@ -74,13 +91,24 @@ def run_smoke_test() -> None:
         "scenarios": {name: {"passed": True} for name in m3.SCENARIOS},
     }
     responses.update({
-        "mission_3.design": {key: "safe" for key in ("front_width", "stop_distance", "forward_speed", "invalid_policy", "stale_policy")},
-        "mission_3.failure_investigation": "A documented prediction, observed failure, restoration, and explanation. " * 2,
-        "mission_3.architecture": "Reactive",
-        **{f"mission_3.{key}": "Complete explanation" for key in m3.REFLECTION_KEYS},
+        **{f"mission_3.{key}": "A complete explanation of the implemented robot system." for key in m3.EXPLANATION_KEYS},
     })
-    source = Path(__file__).resolve().parent / "ros2_ws" / "src" / "week01_behavior"
-    assert m3.evaluate(behavior, graph, responses, source).passed
+    with tempfile.TemporaryDirectory() as directory:
+        source = Path(directory)
+        decision = source / "week01_behavior" / "decision.py"
+        wrapper = source / "week01_behavior" / "obstacle_guard.py"
+        student_test = source / "test" / "test_student_decision.py"
+        for path in (decision, wrapper, student_test):
+            path.parent.mkdir(parents=True, exist_ok=True)
+        decision.write_text("def front_distance(): pass\ndef decide_velocity(): pass\n", encoding="utf-8")
+        wrapper.write_text("# supplied ROS wrapper\n", encoding="utf-8")
+        student_test.write_text(
+            "from week01_behavior.decision import decide_velocity\n"
+            "def test_student_decision():\n    assert decide_velocity(0.5, 0.5, 0.08) == 0.0\n"
+            + "# student test explanation\n" * 3,
+            encoding="utf-8",
+        )
+        assert m3.evaluate(behavior, graph, responses, source).passed
     print("Week 1 lab smoke test passed.")
 
 

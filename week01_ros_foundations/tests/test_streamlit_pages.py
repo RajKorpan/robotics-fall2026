@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 import unittest
@@ -20,8 +21,38 @@ class StreamlitPageTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.submission_directory = tempfile.TemporaryDirectory()
+        cls.evidence_directory = tempfile.TemporaryDirectory()
         cls.previous_submission_root = os.environ.get("WEEK01_SUBMISSION_ROOT")
+        cls.previous_evidence_root = os.environ.get("WEEK01_EVIDENCE_ROOT")
         os.environ["WEEK01_SUBMISSION_ROOT"] = cls.submission_directory.name
+        os.environ["WEEK01_EVIDENCE_ROOT"] = cls.evidence_directory.name
+        graph = {
+            "captured_at": "2026-08-31T00:00:00Z",
+            "nodes": [
+                {"name": "/course_cmd_vel_guard"},
+                {"name": "/course_evidence_collector"},
+                {"name": "/ros_gz_bridge"},
+                {"name": "/rviz2"},
+            ],
+            "topics": [
+                {
+                    "name": name,
+                    "types": [message_type],
+                    "publishers": ["/node_0"] if name in ("/scan", "/odom") else ["/node_2"] if name == "/cmd_vel" else [],
+                    "subscribers": ["/node_1"] if name in ("/scan", "/odom") else ["/node_2"] if name == "/student_cmd_vel" else ["/node_3"],
+                }
+                for name, message_type in {
+                    "/scan": "sensor_msgs/msg/LaserScan",
+                    "/odom": "nav_msgs/msg/Odometry",
+                    "/student_cmd_vel": "geometry_msgs/msg/Twist",
+                    "/cmd_vel": "geometry_msgs/msg/TwistStamped",
+                }.items()
+            ],
+            "samples": {},
+        }
+        (Path(cls.evidence_directory.name) / "graph_snapshot.json").write_text(
+            json.dumps(graph), encoding="utf-8"
+        )
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -29,7 +60,12 @@ class StreamlitPageTests(unittest.TestCase):
             os.environ.pop("WEEK01_SUBMISSION_ROOT", None)
         else:
             os.environ["WEEK01_SUBMISSION_ROOT"] = cls.previous_submission_root
+        if cls.previous_evidence_root is None:
+            os.environ.pop("WEEK01_EVIDENCE_ROOT", None)
+        else:
+            os.environ["WEEK01_EVIDENCE_ROOT"] = cls.previous_evidence_root
         cls.submission_directory.cleanup()
+        cls.evidence_directory.cleanup()
 
     def test_every_stage_renders_without_exception(self) -> None:
         app = AppTest.from_file(str(ROOT / "app.py"))

@@ -79,12 +79,9 @@ class FoundationIntegrationTests(unittest.TestCase):
                 "failure": {"healthy": True, "sensor": True, "type": True, "visualization": True},
                 "inspection": {"nodes": True, "node_info": True, "topics": True, "topic_info": True, "echo": True, "services": True, "broken": True},
             },
-            "mission_1.node_roles": {"/laser": "Sensing"},
-            "mission_1.pipeline_roles": {"/laser": "Sense"},
-            "mission_1.service_example": {
-                "name": "/reset_world",
-                "type": "std_srvs/srv/Empty",
-                "purpose": "Reset the simulation",
+            "mission_1.guided_checks": {
+                key: True
+                for key in ("node_list", "guard_info", "bridge_info", "scan_info", "scan_message", "command_topics")
             },
         }
         with tempfile.TemporaryDirectory() as directory:
@@ -104,18 +101,33 @@ class FoundationIntegrationTests(unittest.TestCase):
             self.assertIn("Robot software architectures", summary)
             self.assertIn("What ROS 2 provides", summary)
 
-            diagram = submissions._write_ros_system_diagram(root / "mission_1", responses)
+            diagram = submissions._write_ros_system_diagram(
+                root / "mission_1",
+                responses,
+                {
+                    "topics": [{
+                        "name": "/student_cmd_vel",
+                        "types": ["geometry_msgs/msg/Twist"],
+                        "publishers": ["/teleop"],
+                        "subscribers": ["/guard"],
+                    }]
+                },
+            )
             rendered = diagram.read_text(encoding="utf-8")
             self.assertIn("/student_cmd_vel", rendered)
-            self.assertIn("/reset_world", rendered)
-            self.assertIn("Sense–decide–act role", rendered)
+            self.assertIn("Guided terminal observations", rendered)
+            self.assertIn("Compared proposed and approved command topics", rendered)
 
     def test_identity_and_retired_quiz_fields_are_sanitized(self) -> None:
         class FakeStreamlit:
             def __init__(self) -> None:
                 self.session_state = {
                     "student": {"name": "Student", "email": "student@example.edu", "course_id": "old"},
-                    "responses": {"part_1.challenge_one": "old", "mission_1.note": "keep"},
+                    "responses": {
+                        "part_1.challenge_one": "old",
+                        "mission_1.note": "keep",
+                        "mission_2.target_reached": True,
+                    },
                 }
 
             def rerun(self) -> None:
@@ -144,14 +156,36 @@ class FoundationIntegrationTests(unittest.TestCase):
             "course_lab_tools" / "timed_twist.py"
         ).read_text(encoding="utf-8")
         self.assertIn("get_service_names_and_types", collector)
+        self.assertIn("get_publishers_info_by_topic", collector)
+        self.assertIn("get_subscriptions_info_by_topic", collector)
         for field in (
             "command_started_at",
             "zero_command_sent_at",
             "actual_command_duration",
             "duration_error",
             "expected_linear_travel",
+            "commanded_path_length",
+            "observed_path_length",
         ):
             self.assertIn(field, timed_twist)
+
+        guard = (
+            ROOT / "ros2_ws" / "src" / "course_cmd_vel_guard" /
+            "course_cmd_vel_guard" / "guard.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('create_publisher(TwistStamped, "/cmd_vel"', guard)
+        self.assertIn("guarded.twist.linear.x", guard)
+
+    def test_mission_two_is_visual_guided_and_repeatable(self) -> None:
+        page = (ROOT / "pages" / "mission_2.py").read_text(encoding="utf-8")
+        self.assertIn("st.html", page)
+        self.assertIn("st.slider", page)
+        self.assertIn("/world/default/set_pose/blocking", page)
+        self.assertNotIn("reset: {all: true}", page)
+        self.assertIn("Revise prediction and rerun", page)
+        self.assertIn("Start-to-end distance", page)
+        self.assertNotIn("Target-zone challenge", page)
+        self.assertNotIn("YOUR_VALUE", page)
 
 
 if __name__ == "__main__":

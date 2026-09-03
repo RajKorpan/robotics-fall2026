@@ -14,7 +14,7 @@ Students may complete Mission 3 outside the scheduled meeting.
 
 ## What is assessed
 
-- Correct ROS graph interpretation
+- Correct ROS graph interpretation using captured publisher and subscriber endpoints
 - Application of sensor, timing, distribution, hardware, architecture, and ROS concepts in the missions
 - Predictions recorded before experiments
 - Evidence connecting commands to motion
@@ -29,8 +29,8 @@ Parts 1–3 are required, ungraded guided demonstrations. They teach concepts th
 | Category | Points |
 |---|---:|
 | Parts 1–3 guided tutorials (required) | 0 |
-| Mission 1 graph and service investigation | 20 |
-| Mission 1 architecture explanation | 10 |
+| Mission 1 guided graph investigation | 20 |
+| Mission 1 scaffolded explanations | 10 |
 | Mission 2 predictions, trials, and timing evidence | 20 |
 | Mission 3 implementation | 20 |
 | Mission 3 tests and layered-safety analysis | 15 |
@@ -43,9 +43,10 @@ Before student use:
 
 1. Start from the same clean image students receive.
 2. Confirm the TurtleBot3 launch publishes `/scan` and `/odom`.
-3. Confirm the graph snapshot contains at least one service and its type.
-4. Confirm the guard is the only publisher on `/cmd_vel` during student behaviors.
-5. Complete all four motion trials and inspect their timing fields.
-6. Implement the starter functions locally and run the behavior evaluator.
-7. Confirm an interrupted scan produces a zero command.
-8. Complete and inspect the ungraded activity record in `foundations.md`, the ROS system diagram, and the generated submission folder.
+3. Confirm the graph snapshot contains publisher and subscriber node names for `/scan`, `/odom`, `/student_cmd_vel`, and `/cmd_vel`.
+4. Confirm the guided node and topic descriptions match the names produced by the launch file.
+5. Confirm the guard is the only publisher on `/cmd_vel` during student behaviors.
+6. Complete all four motion trials and inspect their timing fields.
+7. Implement the starter functions locally and run the behavior evaluator.
+8. Confirm an interrupted scan produces a zero command.
+9. Complete and inspect the ungraded activity record in `foundations.md`, the live-endpoint ROS system diagram, and the generated submission folder.
