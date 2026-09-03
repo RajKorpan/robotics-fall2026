@@ -6,21 +6,43 @@ from lab.session import response, set_response
 
 
 def render(st) -> None:
-    state = tutorial_component(
+    requirements = {
+        "middleware": ("single", "multiple"),
+        "communication": ("topic", "service"),
+        "failure": ("healthy", "sensor", "type", "visualization"),
+        "inspection": ("nodes", "node_info", "topics", "topic_info", "echo", "services", "broken"),
+    }
+    saved_state = dict(response(st, "part_3.activity", {}))
+    received_state = tutorial_component(
         st,
         "ros_graph_playground",
-        dict(response(st, "part_3.activity", {})),
+        saved_state,
         key="week01_ros_graph_playground",
     )
+    legacy = {
+        "middleware": bool(saved_state.get("topic")),
+        "communication": bool(saved_state.get("service")),
+        "failure": bool(saved_state.get("failure")),
+        "inspection": bool(saved_state.get("inspect")),
+    }
+    state = {}
+    for example, observations in requirements.items():
+        saved = saved_state.get(example, {})
+        received = received_state.get(example, {})
+        state[example] = {
+            observation: legacy[example]
+            or bool(saved.get(observation) if hasattr(saved, "get") else False)
+            or bool(received.get(observation) if hasattr(received, "get") else False)
+            for observation in observations
+        }
     set_response(st, "part_3.activity", state)
 
-    complete = all(bool(state.get(item)) for item in ("topic", "service", "failure", "inspect"))
-    st.caption(
-        "This is a guided demonstration, not a quiz. Follow messages through the graph, compare "
-        "a topic with a service, create a failure, and inspect the system."
+    complete = all(
+        all(bool(state.get(example, {}).get(observation)) for observation in observations)
+        for example, observations in requirements.items()
     )
     if not complete:
-        st.info("Complete each graph demonstration to unlock the ROS environment preflight.")
+        st.info("The progress checklist above shows the next observation to complete.")
 
     left, right = st.columns(2)
     with left:

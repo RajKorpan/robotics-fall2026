@@ -6,23 +6,41 @@ from lab.session import response, set_response
 
 
 def render(st) -> None:
-    state = tutorial_component(
+    examples = ("reactive", "behavior", "deliberative", "hybrid", "safety")
+    saved_state = dict(response(st, "part_2.activity", {}))
+    received_state = tutorial_component(
         st,
         "architecture_playground",
-        dict(response(st, "part_2.activity", {})),
+        saved_state,
         key="week01_architecture_playground",
     )
+    state = {}
+    legacy_modes = saved_state.get("modes", {})
+    for example in examples:
+        saved = saved_state.get(example, {})
+        received = received_state.get(example, {})
+        legacy_complete = (
+            bool(legacy_modes.get(example)) if example != "safety" and hasattr(legacy_modes, "get")
+            else bool(saved_state.get("safety")) if example == "safety"
+            else False
+        )
+        state[example] = {
+            flag: legacy_complete
+            or bool(saved.get(flag) if hasattr(saved, "get") else False)
+            or bool(received.get(flag) if hasattr(received, "get") else False)
+            for flag in ("normal", "changed")
+        }
     set_response(st, "part_2.activity", state)
 
-    explored_modes = state.get("modes", {})
-    complete = all(bool(explored_modes.get(mode)) for mode in ("reactive", "behavior", "deliberative", "hybrid"))
-    complete = complete and bool(state.get("safety"))
-    st.caption(
-        "This is a guided demonstration, not a quiz. Compare all four architectures and run "
-        "the safety-override example."
+    comparisons = [state.get(example, {}) for example in examples]
+    complete = all(
+        hasattr(comparison, "get")
+        and bool(comparison.get("normal"))
+        and bool(comparison.get("changed"))
+        for comparison in comparisons
     )
     if not complete:
-        st.info("Explore every architecture and the safety example to continue.")
+        st.info("The progress checklist above shows the next comparison to run.")
 
     left, right = st.columns(2)
     with left:

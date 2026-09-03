@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def submission_root() -> Path:
+    override = os.environ.get("WEEK01_SUBMISSION_ROOT")
+    if override:
+        return Path(override)
     return ROOT / LAB.submission_directory
 
 

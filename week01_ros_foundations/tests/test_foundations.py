@@ -46,6 +46,22 @@ class FoundationIntegrationTests(unittest.TestCase):
         self.assertEqual(part_one.count('section id="card-'), 3)
         self.assertNotIn("Reset example", part_one)
         self.assertNotIn("—", part_one)
+        self.assertNotIn("!state.sensor.normal||!changed", part_one)
+        self.assertNotIn("!state.timing.normal||!changed", part_one)
+        self.assertNotIn("!state.hardware.normal||surface!=='wet'", part_one)
+
+        part_two = (ROOT / "components" / "architecture_playground" / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(part_two.count('section id="card-'), 5)
+        self.assertNotIn("not a quiz", part_two.lower())
+        self.assertNotIn("—", part_two)
+        self.assertIn("keepComparisonButtonsAvailable", part_two)
+
+        part_three = (ROOT / "components" / "ros_graph_playground" / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(part_three.count('section id="card-'), 4)
+        self.assertNotIn("not a quiz", part_three.lower())
+        self.assertNotIn("—", part_three)
+        for command in ("ros2 node list", "ros2 node info", "ros2 topic list", "ros2 topic info", "ros2 topic echo", "ros2 service list"):
+            self.assertIn(command, part_three)
 
     def test_foundations_and_diagram_are_durable_artifacts(self) -> None:
         responses = {
@@ -53,8 +69,16 @@ class FoundationIntegrationTests(unittest.TestCase):
                 example: {"normal": True, "changed": True}
                 for example in ("sensor", "timing", "hardware")
             },
-            "part_2.activity": {"modes": {"reactive": True, "hybrid": True}, "safety": True},
-            "part_3.activity": {"topic": True, "service": True, "failure": True, "inspect": True},
+            "part_2.activity": {
+                example: {"normal": True, "changed": True}
+                for example in ("reactive", "behavior", "deliberative", "hybrid", "safety")
+            },
+            "part_3.activity": {
+                "middleware": {"single": True, "multiple": True},
+                "communication": {"topic": True, "service": True},
+                "failure": {"healthy": True, "sensor": True, "type": True, "visualization": True},
+                "inspection": {"nodes": True, "node_info": True, "topics": True, "topic_info": True, "echo": True, "services": True, "broken": True},
+            },
             "mission_1.node_roles": {"/laser": "Sensing"},
             "mission_1.pipeline_roles": {"/laser": "Sense"},
             "mission_1.service_example": {
