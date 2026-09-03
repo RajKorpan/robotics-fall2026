@@ -4,12 +4,12 @@ This individual lab connects three conceptual foundations to a simulated TurtleB
 
 ## Learning sequence
 
-1. **Part 1 — Why robotics software is difficult:** manipulate toy examples of imperfect sensors, timing delays, distributed failures, and hardware slip.
-2. **Part 2 — Robot software architectures:** watch the same scenario behave under reactive, behavior-based, deliberative, and hybrid control, then run a safety override.
-3. **Part 3 — What ROS 2 provides:** follow topic messages, call a service, break graph connections, and try simulated ROS inspection commands.
+1. **Part 1 - Why robotics software is difficult:** manipulate toy examples of imperfect sensors, timing delays, distributed failures, and hardware slip.
+2. **Part 2 - Robot software architectures:** watch the same scenario behave under reactive, behavior-based, deliberative, and hybrid control, then run a safety override.
+3. **Part 3 - What ROS 2 provides:** follow topic messages, call a service, break graph connections, and try simulated ROS inspection commands.
 4. **Preflight:** verify the shared ROS 2 Jazzy environment.
-5. **Mission 1 — Observe:** learn the simulation and ROS graph vocabulary, then follow a guided tour of four nodes, key topics, and two communication paths.
-6. **Mission 2 — Control:** predict and execute motion, then compare command timing and expected versus observed behavior.
+5. **Mission 1 - Observe:** learn the simulation and ROS graph vocabulary, then follow a guided tour of four nodes, key topics, and two communication paths.
+6. **Mission 2 - Control:** predict and execute motion, then compare command timing and expected versus observed behavior.
 7. **Mission 3 - Create behavior:** implement and test the decision functions used by a supplied LiDAR obstacle-stop ROS 2 node.
 8. **Final synthesis:** connect the three parts to live evidence and the implemented behavior.
 
@@ -139,17 +139,6 @@ git add student_submission ros2_ws/src/week01_behavior
 git commit -m "Submit Week 1 ROS foundations lab"
 git push
 ```
-
-## Instructor controls
-
-The default local password is `ros-master`. Override it before distribution:
-
-```bash
-export WEEK01_INSTRUCTOR_PASSWORD="your-password"
-```
-
-Instructor navigation bypasses page order but does not fabricate mission evidence.
-
 
 ## Required final reflection
 
