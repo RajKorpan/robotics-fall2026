@@ -2,12 +2,12 @@
 
 Set this environment up **once** and reuse it for every ROS-based lab:
 
-- Week 1 — ROS foundations
-- Week 3 — motion, frames, and AI-assisted development
-- Week 6 — SLAM and localization
-- Week 8 — computer vision and learned perception
-- Week 9 — planning and navigation
-- Week 11 — HRI evaluation
+- Week 1: ROS foundations
+- Week 3: motion, frames, and AI-assisted development
+- Week 6: SLAM and localization
+- Week 8: computer vision and learned perception
+- Week 9: planning and navigation
+- Week 11: HRI evaluation
 
 Weeks 4, 5, 10, 12, and 14 are self-contained Python labs and do not require this container.
 
@@ -58,7 +58,7 @@ docker version
 docker compose version
 ```
 
-### macOS — Intel or Apple silicon
+### macOS: Intel or Apple silicon
 
 1. Install the Docker Desktop download matching the Mac's chip.
 2. Start Docker Desktop and finish its first-run prompts.
@@ -80,22 +80,58 @@ docker compose version
 
 Use Docker Engine on Linux rather than Docker Desktop unless the institution specifically manages Docker Desktop.
 
-## 2. Clone the course repository once
+## 2. Fork and clone the course repository once
+
+Use a personal GitHub fork for your coursework. Your fork gives you a repository where you can commit and push your own lab submissions. The instructor repository remains the source for new and revised labs.
+
+### Create your fork
+
+1. Sign in to GitHub.
+2. Open <https://github.com/RajKorpan/robotics-fall2026>.
+3. Select **Fork**.
+4. Keep the repository name `robotics-fall2026` and create the fork under your own account.
+5. On your fork's page, select **Code** and copy its HTTPS URL.
+
+Clone your fork. Replace `YOUR-GITHUB-USERNAME` with your actual GitHub username:
 
 ```bash
-git clone https://github.com/RajKorpan/robotics-fall2026.git
+git clone https://github.com/YOUR-GITHUB-USERNAME/robotics-fall2026.git
 cd robotics-fall2026
 ```
 
-If the repository is already cloned, update it before setup:
+In this clone, `origin` points to your fork. Add the instructor repository as a second remote named `upstream`:
 
 ```bash
-git pull
+git remote add upstream https://github.com/RajKorpan/robotics-fall2026.git
+git remote -v
 ```
+
+The output should show two remotes:
+
+```text
+origin    https://github.com/YOUR-GITHUB-USERNAME/robotics-fall2026.git
+upstream  https://github.com/RajKorpan/robotics-fall2026.git
+```
+
+- `origin` is your fork. Push your completed work here.
+- `upstream` is the instructor repository. Download course updates from here.
+
+### If you already cloned the instructor repository directly
+
+Create your GitHub fork first. Then, from the existing local repository, rename the instructor remote and add your fork as `origin`:
+
+```bash
+git remote rename origin upstream
+git remote add origin https://github.com/YOUR-GITHUB-USERNAME/robotics-fall2026.git
+git remote -v
+git push -u origin main
+```
+
+You do not need to clone a second copy after completing these steps.
 
 ## 3. Build the environment and all ROS workspaces once
 
-The first run downloads/builds a large image and compiles all six workspaces. It can take 15–45 minutes depending on the computer and network.
+The first run downloads/builds a large image and compiles all six workspaces. It can take 15 to 45 minutes depending on the computer and network.
 
 Windows PowerShell:
 
@@ -165,19 +201,97 @@ Stopping the container does not delete source, submissions, maps, evidence, or w
 
 ## Updating during the semester
 
-After `git pull`, rebuild when package metadata, interfaces, or Docker files changed:
+The instructor may revise later labs after you have completed an earlier lab. Keep the same local clone for the entire semester. Because each lab has its own directory, updates to a future lab will normally merge without changing your completed work.
+
+### Before downloading an update
+
+Your working tree must be clean. First save, commit, and push the lab you have been working on. For example, after Week 1:
+
+```bash
+git status
+git add week01_ros_foundations
+git commit -m "Complete Week 1 lab"
+git push origin main
+```
+
+Run `git status` again. It should say `working tree clean` before you continue. Do not download course updates while you have uncommitted lab work.
+
+### Download and merge instructor updates
+
+From the repository root, run:
+
+```bash
+git fetch upstream
+git merge upstream/main
+git push origin main
+```
+
+These commands perform three separate jobs:
+
+1. `git fetch upstream` downloads the instructor's latest commits without changing your files.
+2. `git merge upstream/main` combines those course updates with your commits.
+3. `git push origin main` sends the combined history to your GitHub fork.
+
+Check the result:
+
+```bash
+git status
+git log --oneline -5
+```
+
+Your earlier submission files and commits should remain present, and the revised future lab files should now be available.
+
+### Rebuild after receiving course updates
+
+Course updates may change Python code, ROS packages, launch scripts, or the Docker image. After merging an update, run the setup command again. Docker will reuse unchanged layers, so repeated setup is usually faster than the first setup.
+
+Windows PowerShell:
 
 ```powershell
 .\scripts\ros_course.ps1 setup
 ```
 
-or:
+macOS/Linux:
 
 ```bash
 ./scripts/ros_course.sh setup
 ```
 
 Pure Python source changes in a symlink-built workspace usually do not require a rebuild, but running `build` is always safe.
+
+### If Git reports a merge conflict
+
+A conflict means both you and the instructor changed the same lines of the same file. Git will identify each conflicted file. Do not delete the repository, create a second clone, or use `git reset --hard`.
+
+1. Run `git status` and note the files listed under **Unmerged paths**.
+2. Open each listed file and look for `<<<<<<<`, `=======`, and `>>>>>>>` markers.
+3. Preserve your completed work while incorporating the new course instructions or starter code.
+4. Remove the conflict markers and save the file.
+5. Mark the conflict resolved and complete the merge:
+
+```bash
+git add PATH-TO-RESOLVED-FILE
+git commit -m "Merge instructor course updates"
+git push origin main
+```
+
+If you are uncertain which version to keep, stop before committing and ask the instructor or teaching assistant for help. Include the output of `git status` and the name of the conflicted file.
+
+### Semester update checklist
+
+Use this sequence before starting each newly released lab:
+
+```text
+1. Finish the current lab.
+2. Commit the current lab.
+3. Push it to origin.
+4. Confirm that git status is clean.
+5. Fetch from upstream.
+6. Merge upstream/main.
+7. Push the merged history to origin.
+8. Run the shared setup command.
+9. Start the new lab.
+```
 
 ## Troubleshooting
 
@@ -222,4 +336,3 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 ```
 
 Set `COURSE_ROS_IMAGE` to that tag before `docker compose up`. Pin a semester tag or digest; do not use an unversioned `latest` image for graded work. Validate Gazebo, RViz, TurtleBot3, SLAM, Nav2, OpenCV, and noVNC on Windows/AMD64, macOS/ARM64, and Linux/AMD64 before release.
-
