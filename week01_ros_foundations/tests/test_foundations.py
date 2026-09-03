@@ -23,7 +23,7 @@ class FoundationIntegrationTests(unittest.TestCase):
 
     def test_three_parts_cover_slide_concepts(self) -> None:
         expected = {
-            "robotics_challenges": ("Sensor", "Timing", "Distributed system", "Hardware"),
+            "robotics_challenges": ("Sensor", "Timing", "Sense", "Decide", "Act", "Hardware"),
             "architecture_playground": ("Reactive", "Behavior-based", "Deliberative", "Hybrid", "Safety override"),
             "ros_graph_playground": ("Middleware", "Node", "Topic", "Message", "Service", "graph"),
         }
@@ -42,9 +42,17 @@ class FoundationIntegrationTests(unittest.TestCase):
                 self.assertNotIn(term, source)
             self.assertIn("tutorial_component", source)
 
+        part_one = (ROOT / "components" / "robotics_challenges" / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(part_one.count('section id="card-'), 3)
+        self.assertNotIn("Reset example", part_one)
+        self.assertNotIn("—", part_one)
+
     def test_foundations_and_diagram_are_durable_artifacts(self) -> None:
         responses = {
-            "part_1.activity": {"sensor": True, "timing": True, "distributed": True, "hardware": True},
+            "part_1.activity": {
+                example: {"normal": True, "changed": True}
+                for example in ("sensor", "timing", "hardware")
+            },
             "part_2.activity": {"modes": {"reactive": True, "hybrid": True}, "safety": True},
             "part_3.activity": {"topic": True, "service": True, "failure": True, "inspect": True},
             "mission_1.node_roles": {"/laser": "Sensing"},

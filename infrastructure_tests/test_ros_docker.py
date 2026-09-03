@@ -29,6 +29,12 @@ class SharedRosEnvironmentTests(unittest.TestCase):
         self.assertEqual(len(domains), len(ROS_LABS))
         self.assertEqual(len(domains), len(set(domains)))
 
+    def test_lab_launcher_records_the_streamlit_process(self):
+        launcher = (ROOT / "docker/scripts/course-lab").read_text(encoding="utf-8")
+        self.assertNotIn('(cd "$root" && nohup', launcher)
+        self.assertIn('  nohup /opt/course-venv/bin/python -m streamlit run app.py', launcher)
+        self.assertIn('  echo $! >"$pid_file"', launcher)
+
     def test_dockerfile_has_course_dependencies(self):
         dockerfile = (ROOT / "docker/Dockerfile").read_text(encoding="utf-8")
         for token in (

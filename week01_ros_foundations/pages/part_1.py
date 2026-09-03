@@ -6,22 +6,34 @@ from lab.session import response, set_response
 
 
 def render(st) -> None:
-    state = tutorial_component(
+    examples = ("sensor", "timing", "hardware")
+    saved_state = dict(response(st, "part_1.activity", {}))
+    received_state = tutorial_component(
         st,
         "robotics_challenges",
-        dict(response(st, "part_1.activity", {})),
+        saved_state,
         key="week01_robotics_challenges",
     )
+    state = {}
+    for example in examples:
+        saved = saved_state.get(example, {})
+        received = received_state.get(example, {})
+        state[example] = {
+            flag: bool(saved.get(flag) if hasattr(saved, "get") else False)
+            or bool(received.get(flag) if hasattr(received, "get") else False)
+            for flag in ("normal", "changed")
+        }
     set_response(st, "part_1.activity", state)
 
-    complete = all(bool(state.get(item)) for item in ("sensor", "timing", "distributed", "hardware"))
-    complete = complete and bool(state.get("changed"))
-    st.caption(
-        "This is a guided demonstration, not a quiz. Run all four examples and change at least "
-        "one condition so you can compare what happens."
+    comparisons = [state.get(example, {}) for example in examples]
+    complete = all(
+        hasattr(comparison, "get")
+        and bool(comparison.get("normal"))
+        and bool(comparison.get("changed"))
+        for comparison in comparisons
     )
     if not complete:
-        st.info("Explore each example above; then the next part will unlock.")
+        st.info("The progress checklist above shows the next trial needed in each example.")
 
     left, right = st.columns(2)
     with left:

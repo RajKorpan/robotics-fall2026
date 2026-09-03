@@ -34,6 +34,20 @@ class StreamlitPageTests(unittest.TestCase):
                 app.run(timeout=20)
                 self.assertFalse(app.exception)
 
+    def test_part_one_continue_unlocks_after_three_comparisons(self) -> None:
+        app = AppTest.from_file(str(ROOT / "app.py"))
+        app.run(timeout=20)
+        app.session_state["stage"] = "part_1"
+        app.session_state["responses"] = {
+            "part_1.activity": {
+                example: {"normal": True, "changed": True}
+                for example in ("sensor", "timing", "hardware")
+            }
+        }
+        app.run(timeout=20)
+        button = next(item for item in app.button if item.label == "Continue to Part 2")
+        self.assertFalse(button.disabled)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -28,13 +28,23 @@ export TURTLEBOT3_MODEL=burger
 pid_file=/tmp/course-streamlit.pid
 if [[ -f "$pid_file" ]]; then
   old_pid="$(cat "$pid_file")"
-  if kill -0 "$old_pid" 2>/dev/null; then kill "$old_pid"; fi
+  if kill -0 "$old_pid" 2>/dev/null; then
+    kill "$old_pid"
+    for _ in $(seq 1 30); do
+      kill -0 "$old_pid" 2>/dev/null || break
+      sleep 0.1
+    done
+  fi
   rm -f "$pid_file"
 fi
 
-(cd "$root" && nohup /opt/course-venv/bin/python -m streamlit run app.py \
-  --server.address=0.0.0.0 --server.port=8501 --server.headless=true \
-  >/tmp/course-streamlit.log 2>&1 & echo $! >"$pid_file")
+(
+  cd "$root"
+  nohup /opt/course-venv/bin/python -m streamlit run app.py \
+    --server.address=0.0.0.0 --server.port=8501 --server.headless=true \
+    >/tmp/course-streamlit.log 2>&1 &
+  echo $! >"$pid_file"
+)
 
 DISPLAY="${DISPLAY:-:1}" nohup xterm -display "${DISPLAY:-:1}" -T "$lab" -geometry 120x34+70+70 -e bash -lc \
   "source /opt/ros/jazzy/setup.bash; source '$setup'; export ROS_DOMAIN_ID='$domain'; export TURTLEBOT3_MODEL=burger; cd '$root'; printf '\nActive lab: $lab\nROS_DOMAIN_ID=$domain\n\n'; exec bash" >/tmp/course-xterm.log 2>&1 &
