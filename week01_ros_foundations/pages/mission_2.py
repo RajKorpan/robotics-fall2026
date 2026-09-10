@@ -242,7 +242,11 @@ def _run_trial(name: str, linear_x: float, angular_z: float, duration: float) ->
             )
         if _gazebo_service_unavailable(output):
             return _save_unavailable_service_backup(name, linear_x, angular_z, duration)
-        return False, output or "The trial timed out before complete motion and stop evidence were saved."
+        save_motion_trial(_backup_trial(name, linear_x, angular_z, duration))
+        return True, (
+            "The live trial did not finish before the time limit, and no complete live measurements were "
+            "saved. The guide recorded a clearly labeled representative backup model and unlocked the next activity."
+        )
     except OSError as error:
         return False, f"The trial could not start: {error}"
     output = "\n".join(part.strip() for part in (stdout, stderr) if part.strip())

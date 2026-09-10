@@ -124,6 +124,33 @@ class MissionTwoExecutionTests(unittest.TestCase):
         self.assertEqual(backup["trial_type"], "curve")
         self.assertTrue(backup["fallback_used"])
 
+    @patch("pages.mission_2.save_motion_trial")
+    @patch("pages.mission_2.os.killpg", create=True)
+    @patch("pages.mission_2.motion_trials", return_value=[])
+    @patch("pages.mission_2.subprocess.Popen")
+    def test_timeout_without_process_output_still_unlocks_progress(
+        self,
+        popen: MagicMock,
+        motion_trials: MagicMock,
+        killpg: MagicMock,
+        save_motion_trial: MagicMock,
+    ) -> None:
+        process = popen.return_value
+        process.pid = 1234
+        process.communicate.side_effect = [
+            subprocess.TimeoutExpired("trial", 48),
+            ("", ""),
+        ]
+
+        passed, message = mission_2._run_trial("straight", 0.15, 0.0, 3.0)
+
+        self.assertTrue(passed)
+        self.assertIn("backup model", message)
+        backup = save_motion_trial.call_args.args[0]
+        self.assertEqual(backup["trial_type"], "straight")
+        self.assertTrue(backup["fallback_used"])
+        killpg.assert_called_once()
+
     def test_preflight_uses_colored_status_labels(self) -> None:
         source = (mission_2.ROOT / "pages" / "preflight.py").read_text(encoding="utf-8")
         self.assertIn(":green[✔ Passed]", source)
