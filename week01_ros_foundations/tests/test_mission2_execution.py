@@ -9,7 +9,7 @@ from pages import mission_2
 
 
 class MissionTwoExecutionTests(unittest.TestCase):
-    @patch("pages.mission_2.os.killpg")
+    @patch("pages.mission_2.os.killpg", create=True)
     @patch("pages.mission_2.motion_trials")
     @patch("pages.mission_2.subprocess.Popen")
     def test_saved_motion_is_success_if_ros_helper_hangs(
@@ -42,7 +42,7 @@ class MissionTwoExecutionTests(unittest.TestCase):
         killpg.assert_called_once()
 
     @patch("pages.mission_2.save_motion_trial")
-    @patch("pages.mission_2.os.killpg")
+    @patch("pages.mission_2.os.killpg", create=True)
     @patch("pages.mission_2.motion_trials", return_value=[])
     @patch("pages.mission_2.subprocess.Popen")
     def test_started_timeout_saves_labeled_backup_and_allows_progress(
@@ -105,15 +105,65 @@ class MissionTwoExecutionTests(unittest.TestCase):
         self.assertLess(guided_curve["observed_path_length"], guided_curve["commanded_path_length"])
         self.assertLess(modified_curve["observed_path_length"], modified_curve["commanded_path_length"])
 
+    @patch("pages.mission_2.save_motion_trial")
+    @patch("pages.mission_2.subprocess.Popen")
+    def test_gazebo_service_timeout_uses_backup_and_unlocks_progress(
+        self,
+        popen: MagicMock,
+        save_motion_trial: MagicMock,
+    ) -> None:
+        process = popen.return_value
+        process.returncode = 1
+        process.communicate.return_value = ("", "Service call timed out")
+
+        passed, message = mission_2._run_trial("curve", 0.15, -0.4, 4.0)
+
+        self.assertTrue(passed)
+        self.assertIn("Gazebo did not answer", message)
+        backup = save_motion_trial.call_args.args[0]
+        self.assertEqual(backup["trial_type"], "curve")
+        self.assertTrue(backup["fallback_used"])
+
     def test_preflight_uses_colored_status_labels(self) -> None:
         source = (mission_2.ROOT / "pages" / "preflight.py").read_text(encoding="utf-8")
         self.assertIn(":green[✔ Passed]", source)
         self.assertIn(":red[✘ Not ready]", source)
 
+    @patch("pages.mission_2.subprocess.run")
+    def test_reset_uses_nonblocking_pose_backup_after_pose_timeout(self, run: MagicMock) -> None:
+        run.side_effect = [
+            subprocess.CompletedProcess([], 0, "published", ""),
+            subprocess.TimeoutExpired("pose reset", 12),
+            subprocess.CompletedProcess([], 0, "data: true", ""),
+        ]
+
+        confirmed, message = mission_2._reset_robot()
+
+        self.assertTrue(confirmed)
+        self.assertIn("backup reset", message)
+        self.assertIn("/world/default/set_pose", run.call_args_list[2].args[0][2])
+        self.assertNotIn("set_pose/blocking", run.call_args_list[2].args[0][2])
+
+    @patch("pages.mission_2.subprocess.run")
+    def test_unconfirmed_reset_does_not_prevent_mission_completion(self, run: MagicMock) -> None:
+        run.side_effect = [
+            subprocess.TimeoutExpired("stop", 8),
+            subprocess.TimeoutExpired("pose reset", 12),
+            subprocess.TimeoutExpired("world reset", 12),
+        ]
+
+        confirmed, message = mission_2._reset_robot()
+
+        self.assertFalse(confirmed)
+        self.assertIn("Mission 2 was saved", message)
+        self.assertIn("continue to Mission 3", message)
+
     def test_mission_two_resets_before_mission_three(self) -> None:
         source = (mission_2.ROOT / "pages" / "mission_2.py").read_text(encoding="utf-8")
         self.assertIn("def _reset_robot", source)
-        self.assertIn("reset_ok, reset_message = _reset_robot()", source)
+        self.assertIn("reset_confirmed, reset_message = _reset_robot()", source)
+        self.assertIn('"reset_confirmed": reset_confirmed', source)
+        self.assertIn("Continue to Mission 3", source)
         self.assertIn('set_stage(st, "mission_3")', source)
 
 

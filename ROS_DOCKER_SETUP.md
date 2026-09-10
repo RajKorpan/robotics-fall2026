@@ -265,6 +265,10 @@ Use this sequence before starting each newly released lab:
 
 Start Docker Desktop and wait for the engine. On Windows, confirm Docker is using Linux containers and WSL 2.
 
+### `/usr/bin/env: 'bash\r': No such file or directory`
+
+This means an older Windows checkout converted a Linux shell script to CRLF line endings. Download the latest course update and rerun the Windows `setup` command. The updated Docker build and lab launcher normalize these scripts automatically.
+
 ### Port 6080 or 8501 is already in use
 
 Stop another course container or local Streamlit process, then run the course `stop` and `start` commands.

@@ -19,6 +19,11 @@ if [[ ! -f "$setup" ]]; then
   exit 3
 fi
 
+# Windows Git configurations can leave CRLF endings in an existing clone even
+# after the repository begins enforcing LF. Normalize course shell scripts
+# before students run them from the bind-mounted workspace.
+find "$root/scripts" -type f -name '*.sh' -exec sed -i 's/\r$//' {} +
+
 source /opt/ros/jazzy/setup.bash
 source "$setup"
 set -u
@@ -55,7 +60,7 @@ fi
 
 streamlit_pid="$(cat "$pid_file")"
 guide_ready=false
-for _ in $(seq 1 60); do
+for _ in $(seq 1 240); do
   if ! kill -0 "$streamlit_pid" 2>/dev/null; then
     echo "The lab guide stopped during startup." >&2
     echo "Streamlit log:" >&2
@@ -70,7 +75,7 @@ for _ in $(seq 1 60); do
 done
 
 if [[ "$guide_ready" != true ]]; then
-  echo "The lab guide did not respond on port 8501 within 15 seconds." >&2
+  echo "The lab guide did not respond on port 8501 within 60 seconds." >&2
   echo "Streamlit log:" >&2
   cat /tmp/course-streamlit.log >&2
   exit 5

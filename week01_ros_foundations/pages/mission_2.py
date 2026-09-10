@@ -162,6 +162,19 @@ def _backup_trial(name: str, linear_x: float, angular_z: float, duration: float)
     }
 
 
+def _gazebo_service_unavailable(output: str) -> bool:
+    lowered = output.lower()
+    return "service call timed out" in lowered or "service unavailable" in lowered
+
+
+def _save_unavailable_service_backup(name: str, linear_x: float, angular_z: float, duration: float) -> tuple[bool, str]:
+    save_motion_trial(_backup_trial(name, linear_x, angular_z, duration))
+    return True, (
+        "Gazebo did not answer the reset request, so the live trial could not begin. The guide recorded "
+        "a clearly labeled representative backup model and unlocked the next activity."
+    )
+
+
 def _run_trial(name: str, linear_x: float, angular_z: float, duration: float) -> tuple[bool, str]:
     started_at = datetime.now(timezone.utc).isoformat()
     command = (
@@ -227,43 +240,88 @@ def _run_trial(name: str, linear_x: float, angular_z: float, duration: float) ->
                 "The command guard stopped the robot, and the guide recorded a clearly labeled backup model "
                 "of the expected motion so you can continue."
             )
+        if _gazebo_service_unavailable(output):
+            return _save_unavailable_service_backup(name, linear_x, angular_z, duration)
         return False, output or "The trial timed out before complete motion and stop evidence were saved."
     except OSError as error:
         return False, f"The trial could not start: {error}"
     output = "\n".join(part.strip() for part in (stdout, stderr) if part.strip())
     if process is None or process.returncode != 0:
+        if _gazebo_service_unavailable(output):
+            return _save_unavailable_service_backup(name, linear_x, angular_z, duration)
         if "ExternalShutdownException" in output or "publisher's context is invalid" in output:
             return False, "ROS stopped the trial before complete motion and stop measurements were saved. Confirm that the simulation is still running, then run this trial again."
         return False, output or f"The trial exited with code {process.returncode if process else 'unknown'}."
     return True, output or "The trial completed and its evidence was saved."
 
 
-def _reset_robot() -> tuple[bool, str]:
-    command = (
-        "source /opt/ros/jazzy/setup.bash && "
-        "source /workspace/week01_ros_foundations/ros2_ws/install/setup.bash && "
-        "export ROS_DOMAIN_ID=24 && "
-        "ros2 topic pub --once /student_cmd_vel geometry_msgs/msg/Twist "
-        "'{linear: {x: 0.0}, angular: {z: 0.0}}' >/dev/null && "
-        "gz service -s /world/default/set_pose/blocking --reqtype gz.msgs.Pose "
-        "--reptype gz.msgs.Boolean --timeout 5000 "
-        "--req 'name: \"burger\", position: {x: -2.0, y: -0.5, z: 0.01}, orientation: {w: 1.0}'"
-    )
+def _run_reset_command(command: str, timeout: float) -> tuple[bool, str]:
     try:
         result = subprocess.run(
             ["bash", "-lc", command],
             cwd=ROOT,
             capture_output=True,
             text=True,
-            timeout=15.0,
+            timeout=timeout,
             check=False,
         )
-    except (OSError, subprocess.TimeoutExpired) as error:
-        return False, f"The robot could not be reset: {error}"
+    except subprocess.TimeoutExpired:
+        return False, "command timed out"
+    except OSError as error:
+        return False, str(error)
     output = "\n".join(part.strip() for part in (result.stdout, result.stderr) if part.strip())
-    if result.returncode != 0:
-        return False, output or "The robot reset command failed."
-    return True, "The robot stopped and returned to the starting position for Mission 3."
+    return result.returncode == 0, output
+
+
+def _reset_robot() -> tuple[bool, str]:
+    ros_prefix = (
+        "source /opt/ros/jazzy/setup.bash && "
+        "source /workspace/week01_ros_foundations/ros2_ws/install/setup.bash && "
+        "export ROS_DOMAIN_ID=24 && "
+    )
+    stop_ok, stop_output = _run_reset_command(
+        ros_prefix
+        + "ros2 topic pub --once --wait-matching-subscriptions 0 "
+        "/student_cmd_vel geometry_msgs/msg/Twist "
+        "'{linear: {x: 0.0}, angular: {z: 0.0}}'",
+        8.0,
+    )
+    pose_ok, pose_output = _run_reset_command(
+        ros_prefix
+        + "gz service -s /world/default/set_pose/blocking --reqtype gz.msgs.Pose "
+        "--reptype gz.msgs.Boolean --timeout 7000 "
+        "--req 'name: \"burger\", position: {x: -2.0, y: -0.5, z: 0.01}, orientation: {w: 1.0}'",
+        12.0,
+    )
+    if pose_ok:
+        if stop_ok:
+            return True, "The robot stopped and returned to the starting position for Mission 3."
+        return True, (
+            "The robot returned to the starting position. The separate stop publisher did not confirm, "
+            "so the command guard supplied the safety stop."
+        )
+
+    backup_ok, backup_output = _run_reset_command(
+        ros_prefix
+        + "gz service -s /world/default/set_pose --reqtype gz.msgs.Pose "
+        "--reptype gz.msgs.Boolean --timeout 7000 "
+        "--req 'name: \"burger\", position: {x: -2.0, y: -0.5, z: 0.01}, orientation: {w: 1.0}'",
+        12.0,
+    )
+    if backup_ok:
+        return True, (
+            "The first reset attempt took too long, so the guide used its backup reset. "
+            "The robot is stopped and ready for Mission 3."
+        )
+    details = "; ".join(
+        detail for detail in (stop_output, pose_output, backup_output) if detail
+    )
+    return False, (
+        "Mission 2 was saved, but the guide could not confirm that Gazebo returned the robot to its "
+        "starting position. The command guard stops continued motion. You may retry the reset or continue "
+        "to Mission 3."
+        + (f" Details: {details}" if details else "")
+    )
 
 
 def _result_row(name: str, trial: dict) -> dict:
@@ -488,22 +546,30 @@ def render(st) -> None:
     checked_id = st.session_state.get("checked_evidence_ids", {}).get("mission_2")
     if check.passed and checked_id != current_id:
         if st.button("Check and save Mission 2", type="primary"):
-            reset_ok, reset_message = _reset_robot()
-            st.session_state["mission2.final_reset"] = (reset_ok, reset_message)
-            if reset_ok:
-                evidence = {"evidence_id": current_id, "trials": trials, "check": [item.__dict__ for item in check.requirements]}
-                save_mission("mission_2", evidence, responses)
-                complete_mission(st, "mission_2", current_id)
+            reset_confirmed, reset_message = _reset_robot()
+            st.session_state["mission2.final_reset"] = (reset_confirmed, reset_message)
+            evidence = {
+                "evidence_id": current_id,
+                "trials": trials,
+                "reset_confirmed": reset_confirmed,
+                "check": [item.__dict__ for item in check.requirements],
+            }
+            save_mission("mission_2", evidence, responses)
+            complete_mission(st, "mission_2", current_id)
             st.rerun()
     final_reset = st.session_state.get("mission2.final_reset")
     if final_reset:
-        (st.success if final_reset[0] else st.error)(final_reset[1])
+        (st.success if final_reset[0] else st.warning)(final_reset[1])
     if check.passed and checked_id == current_id:
         st.success("Mission 2 is saved.")
-        if st.button("Continue to Mission 3", type="primary"):
-            reset_ok, reset_message = _reset_robot()
-            st.session_state["mission2.final_reset"] = (reset_ok, reset_message)
-            if reset_ok:
+        if final_reset and final_reset[0]:
+            if st.button("Continue to Mission 3", type="primary"):
                 set_stage(st, "mission_3")
-            else:
+        else:
+            retry_column, continue_column = st.columns(2)
+            if retry_column.button("Retry robot reset", type="primary"):
+                reset_confirmed, reset_message = _reset_robot()
+                st.session_state["mission2.final_reset"] = (reset_confirmed, reset_message)
                 st.rerun()
+            if continue_column.button("Continue to Mission 3"):
+                set_stage(st, "mission_3")
