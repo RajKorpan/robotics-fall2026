@@ -1,0 +1,110 @@
+{
+  "checked_evidence_ids": {
+    "mission_1": "bc7cb64046e4293b"
+  },
+  "completed_missions": [
+    "mission_1"
+  ],
+  "lab_id": "week01_ros_foundations",
+  "responses": {
+    "mission_1.command_path_explanation": "A proposed command travels on student_cmd_vel, this part drives the command that comes from a student's program before they are checked to see if it is safe. While the guard subscribes it /cmd_vel and decides if the proposed command is safe to execute, then if deemed safe the guard publishes the command to _vel. There is a whole process that must happen to ensure safety. ",
+    "mission_1.graph_explanation": "A ROS 2 graph is a live map of running nodes that work to communicate with other parts within the system of the robot. Nodes work with topics. An exmaple of a node is /rviz2 and a topic is /scan. ",
+    "mission_1.guided_checks": {
+      "bridge_info": true,
+      "command_topics": true,
+      "guard_info": true,
+      "node_list": true,
+      "scan_info": true,
+      "scan_message": true
+    },
+    "mission_1.scan_observation": "I found various ranges and values, the highest being 3.5. Which represents the maximum distance the LiDAR can measure, so there is no obstacle detected within that distance. ",
+    "mission_1.tools_explanation": "Gazebo is responsible to simulating the environment that a robot is in as well as the physics of the robot in general. This is where  motion is calculated, possible collision, and what the senors would detect in its environment. While Rviz is responsible for actually visualizing the data so a person can see it, like LiDAR readings. ",
+    "mission_2.measurement_explanation": "The estimated amount is great than the start-to-end amount in both trials because they both are measuring similar but different things. The estimated path or arc length is measuring the distance the robot moved along its curved path while the start-to-end is measuring the distance from the start to end using a straight line. So the straight line would be like the hypotenuse of a right triangle and then the estimated is the base + height, which is greater than the hypotenuse.",
+    "mission_2.modified_settings": {
+      "angular_z": 0.6,
+      "duration": 4.0,
+      "linear_x": 0.12
+    },
+    "mission_2.motion_comparison": "The rotation trial results validated my hypothesis. The start to end distance is 0m meaning it didn't travel anywhere. Then the direction change was 73.9 degrees, meaning it turned to the right and was not facing the right. Both of these were in my prediction.",
+    "mission_2.prediction_locks": {
+      "curve": "2026-09-14T00:45:47.610789+00:00",
+      "curve_modified": "2026-09-14T00:58:05.677333+00:00",
+      "rotation": "2026-09-13T04:15:37.702557+00:00",
+      "straight": "2026-09-13T03:23:54.200456+00:00"
+    },
+    "mission_2.predictions": {
+      "curve": "I predict that it will have a very short straight path that curves gradually to the right. Like the turn right symbol when driving. \n",
+      "curve_modified": "This curve would be tighter because the angular velocity would be faster in relation to the speed, which would make a tighter curve.",
+      "rotation": "I predict that its physical position won't change, while its direction will and it will now face the left. ",
+      "straight": "I predict the robot will finish 0.45m straight forward from its starting position.\n\n"
+    },
+    "mission_2.safety_explanation": "The command guard checks the commands given to the robot before it actually makes it to the robot so that it is safe. The final zero command lets the robot know that this is the final command/end of a trial by making it no longer move forward or turn. The timeout is needed is a program doesn't work properly or communication with the robot is lost while it is in motion.",
+    "part_1.activity": {
+      "hardware": {
+        "changed": true,
+        "normal": true
+      },
+      "sensor": {
+        "changed": true,
+        "normal": true
+      },
+      "timing": {
+        "changed": true,
+        "normal": true
+      }
+    },
+    "part_2.activity": {
+      "behavior": {
+        "changed": true,
+        "normal": true
+      },
+      "deliberative": {
+        "changed": true,
+        "normal": true
+      },
+      "hybrid": {
+        "changed": true,
+        "normal": true
+      },
+      "reactive": {
+        "changed": true,
+        "normal": true
+      },
+      "safety": {
+        "changed": true,
+        "normal": true
+      }
+    },
+    "part_3.activity": {
+      "communication": {
+        "service": true,
+        "topic": true
+      },
+      "failure": {
+        "healthy": true,
+        "sensor": true,
+        "type": true,
+        "visualization": true
+      },
+      "inspection": {
+        "broken": true,
+        "echo": true,
+        "node_info": true,
+        "nodes": true,
+        "services": true,
+        "topic_info": true,
+        "topics": true
+      },
+      "middleware": {
+        "multiple": true,
+        "single": true
+      }
+    }
+  },
+  "schema_version": 1,
+  "student": {
+    "email": "amaya.mangual74@login.cuny.edu",
+    "name": "Amaya Mangual"
+  },
+  "updated_at": "2026-09-14T05:45:11.795495+00:00"
+}

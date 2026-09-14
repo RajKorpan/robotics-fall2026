@@ -1,0 +1,707 @@
+{
+  "evidence_id": "bc7cb64046e4293b",
+  "graph": {
+    "schema_version": 2,
+    "captured_at": "2026-09-14T05:44:42.679911+00:00",
+    "nodes": [
+      {
+        "name": "/course_cmd_vel_guard"
+      },
+      {
+        "name": "/course_evidence_collector"
+      },
+      {
+        "name": "/robot_state_publisher"
+      },
+      {
+        "name": "/ros_gz_bridge"
+      },
+      {
+        "name": "/rviz2"
+      },
+      {
+        "name": "/transform_listener_impl_5d1edb9193d0"
+      }
+    ],
+    "topics": [
+      {
+        "name": "/clicked_point",
+        "types": [
+          "geometry_msgs/msg/PointStamped"
+        ],
+        "publishers": [
+          "/rviz2"
+        ],
+        "subscribers": []
+      },
+      {
+        "name": "/clock",
+        "types": [
+          "rosgraph_msgs/msg/Clock"
+        ],
+        "publishers": [
+          "/ros_gz_bridge"
+        ],
+        "subscribers": [
+          "/robot_state_publisher"
+        ]
+      },
+      {
+        "name": "/cmd_vel",
+        "types": [
+          "geometry_msgs/msg/TwistStamped"
+        ],
+        "publishers": [
+          "/course_cmd_vel_guard"
+        ],
+        "subscribers": [
+          "/ros_gz_bridge"
+        ]
+      },
+      {
+        "name": "/goal_pose",
+        "types": [
+          "geometry_msgs/msg/PoseStamped"
+        ],
+        "publishers": [
+          "/rviz2"
+        ],
+        "subscribers": []
+      },
+      {
+        "name": "/imu",
+        "types": [
+          "sensor_msgs/msg/Imu"
+        ],
+        "publishers": [
+          "/ros_gz_bridge"
+        ],
+        "subscribers": []
+      },
+      {
+        "name": "/initialpose",
+        "types": [
+          "geometry_msgs/msg/PoseWithCovarianceStamped"
+        ],
+        "publishers": [
+          "/rviz2"
+        ],
+        "subscribers": []
+      },
+      {
+        "name": "/joint_states",
+        "types": [
+          "sensor_msgs/msg/JointState"
+        ],
+        "publishers": [
+          "/ros_gz_bridge"
+        ],
+        "subscribers": [
+          "/robot_state_publisher"
+        ]
+      },
+      {
+        "name": "/odom",
+        "types": [
+          "nav_msgs/msg/Odometry"
+        ],
+        "publishers": [
+          "/ros_gz_bridge"
+        ],
+        "subscribers": [
+          "/course_evidence_collector"
+        ]
+      },
+      {
+        "name": "/parameter_events",
+        "types": [
+          "rcl_interfaces/msg/ParameterEvent"
+        ],
+        "publishers": [
+          "/course_cmd_vel_guard",
+          "/course_evidence_collector",
+          "/robot_state_publisher",
+          "/ros_gz_bridge",
+          "/rviz2"
+        ],
+        "subscribers": [
+          "/robot_state_publisher",
+          "/ros_gz_bridge",
+          "/rviz2",
+          "/transform_listener_impl_5d1edb9193d0"
+        ]
+      },
+      {
+        "name": "/robot_description",
+        "types": [
+          "std_msgs/msg/String"
+        ],
+        "publishers": [
+          "/robot_state_publisher"
+        ],
+        "subscribers": []
+      },
+      {
+        "name": "/rosout",
+        "types": [
+          "rcl_interfaces/msg/Log"
+        ],
+        "publishers": [
+          "/course_cmd_vel_guard",
+          "/course_evidence_collector",
+          "/robot_state_publisher",
+          "/ros_gz_bridge",
+          "/rviz2",
+          "/transform_listener_impl_5d1edb9193d0"
+        ],
+        "subscribers": []
+      },
+      {
+        "name": "/scan",
+        "types": [
+          "sensor_msgs/msg/LaserScan"
+        ],
+        "publishers": [
+          "/ros_gz_bridge"
+        ],
+        "subscribers": [
+          "/course_evidence_collector"
+        ]
+      },
+      {
+        "name": "/student_cmd_vel",
+        "types": [
+          "geometry_msgs/msg/Twist"
+        ],
+        "publishers": [],
+        "subscribers": [
+          "/course_cmd_vel_guard",
+          "/course_evidence_collector"
+        ]
+      },
+      {
+        "name": "/tf",
+        "types": [
+          "tf2_msgs/msg/TFMessage"
+        ],
+        "publishers": [
+          "/robot_state_publisher",
+          "/ros_gz_bridge"
+        ],
+        "subscribers": [
+          "/transform_listener_impl_5d1edb9193d0"
+        ]
+      },
+      {
+        "name": "/tf_static",
+        "types": [
+          "tf2_msgs/msg/TFMessage"
+        ],
+        "publishers": [
+          "/robot_state_publisher"
+        ],
+        "subscribers": [
+          "/transform_listener_impl_5d1edb9193d0"
+        ]
+      }
+    ],
+    "services": [
+      {
+        "name": "/course_cmd_vel_guard/describe_parameters",
+        "types": [
+          "rcl_interfaces/srv/DescribeParameters"
+        ]
+      },
+      {
+        "name": "/course_cmd_vel_guard/get_parameter_types",
+        "types": [
+          "rcl_interfaces/srv/GetParameterTypes"
+        ]
+      },
+      {
+        "name": "/course_cmd_vel_guard/get_parameters",
+        "types": [
+          "rcl_interfaces/srv/GetParameters"
+        ]
+      },
+      {
+        "name": "/course_cmd_vel_guard/get_type_description",
+        "types": [
+          "type_description_interfaces/srv/GetTypeDescription"
+        ]
+      },
+      {
+        "name": "/course_cmd_vel_guard/list_parameters",
+        "types": [
+          "rcl_interfaces/srv/ListParameters"
+        ]
+      },
+      {
+        "name": "/course_cmd_vel_guard/set_parameters",
+        "types": [
+          "rcl_interfaces/srv/SetParameters"
+        ]
+      },
+      {
+        "name": "/course_cmd_vel_guard/set_parameters_atomically",
+        "types": [
+          "rcl_interfaces/srv/SetParametersAtomically"
+        ]
+      },
+      {
+        "name": "/course_evidence_collector/describe_parameters",
+        "types": [
+          "rcl_interfaces/srv/DescribeParameters"
+        ]
+      },
+      {
+        "name": "/course_evidence_collector/get_parameter_types",
+        "types": [
+          "rcl_interfaces/srv/GetParameterTypes"
+        ]
+      },
+      {
+        "name": "/course_evidence_collector/get_parameters",
+        "types": [
+          "rcl_interfaces/srv/GetParameters"
+        ]
+      },
+      {
+        "name": "/course_evidence_collector/get_type_description",
+        "types": [
+          "type_description_interfaces/srv/GetTypeDescription"
+        ]
+      },
+      {
+        "name": "/course_evidence_collector/list_parameters",
+        "types": [
+          "rcl_interfaces/srv/ListParameters"
+        ]
+      },
+      {
+        "name": "/course_evidence_collector/set_parameters",
+        "types": [
+          "rcl_interfaces/srv/SetParameters"
+        ]
+      },
+      {
+        "name": "/course_evidence_collector/set_parameters_atomically",
+        "types": [
+          "rcl_interfaces/srv/SetParametersAtomically"
+        ]
+      },
+      {
+        "name": "/robot_state_publisher/describe_parameters",
+        "types": [
+          "rcl_interfaces/srv/DescribeParameters"
+        ]
+      },
+      {
+        "name": "/robot_state_publisher/get_parameter_types",
+        "types": [
+          "rcl_interfaces/srv/GetParameterTypes"
+        ]
+      },
+      {
+        "name": "/robot_state_publisher/get_parameters",
+        "types": [
+          "rcl_interfaces/srv/GetParameters"
+        ]
+      },
+      {
+        "name": "/robot_state_publisher/get_type_description",
+        "types": [
+          "type_description_interfaces/srv/GetTypeDescription"
+        ]
+      },
+      {
+        "name": "/robot_state_publisher/list_parameters",
+        "types": [
+          "rcl_interfaces/srv/ListParameters"
+        ]
+      },
+      {
+        "name": "/robot_state_publisher/set_parameters",
+        "types": [
+          "rcl_interfaces/srv/SetParameters"
+        ]
+      },
+      {
+        "name": "/robot_state_publisher/set_parameters_atomically",
+        "types": [
+          "rcl_interfaces/srv/SetParametersAtomically"
+        ]
+      },
+      {
+        "name": "/ros_gz_bridge/describe_parameters",
+        "types": [
+          "rcl_interfaces/srv/DescribeParameters"
+        ]
+      },
+      {
+        "name": "/ros_gz_bridge/get_parameter_types",
+        "types": [
+          "rcl_interfaces/srv/GetParameterTypes"
+        ]
+      },
+      {
+        "name": "/ros_gz_bridge/get_parameters",
+        "types": [
+          "rcl_interfaces/srv/GetParameters"
+        ]
+      },
+      {
+        "name": "/ros_gz_bridge/get_type_description",
+        "types": [
+          "type_description_interfaces/srv/GetTypeDescription"
+        ]
+      },
+      {
+        "name": "/ros_gz_bridge/list_parameters",
+        "types": [
+          "rcl_interfaces/srv/ListParameters"
+        ]
+      },
+      {
+        "name": "/ros_gz_bridge/set_parameters",
+        "types": [
+          "rcl_interfaces/srv/SetParameters"
+        ]
+      },
+      {
+        "name": "/ros_gz_bridge/set_parameters_atomically",
+        "types": [
+          "rcl_interfaces/srv/SetParametersAtomically"
+        ]
+      },
+      {
+        "name": "/rviz2/describe_parameters",
+        "types": [
+          "rcl_interfaces/srv/DescribeParameters"
+        ]
+      },
+      {
+        "name": "/rviz2/get_parameter_types",
+        "types": [
+          "rcl_interfaces/srv/GetParameterTypes"
+        ]
+      },
+      {
+        "name": "/rviz2/get_parameters",
+        "types": [
+          "rcl_interfaces/srv/GetParameters"
+        ]
+      },
+      {
+        "name": "/rviz2/get_type_description",
+        "types": [
+          "type_description_interfaces/srv/GetTypeDescription"
+        ]
+      },
+      {
+        "name": "/rviz2/list_parameters",
+        "types": [
+          "rcl_interfaces/srv/ListParameters"
+        ]
+      },
+      {
+        "name": "/rviz2/reset_time",
+        "types": [
+          "std_srvs/srv/Empty"
+        ]
+      },
+      {
+        "name": "/rviz2/set_parameters",
+        "types": [
+          "rcl_interfaces/srv/SetParameters"
+        ]
+      },
+      {
+        "name": "/rviz2/set_parameters_atomically",
+        "types": [
+          "rcl_interfaces/srv/SetParametersAtomically"
+        ]
+      },
+      {
+        "name": "/transform_listener_impl_5d1edb9193d0/get_type_description",
+        "types": [
+          "type_description_interfaces/srv/GetTypeDescription"
+        ]
+      }
+    ],
+    "samples": {
+      "/scan": {
+        "frame_id": "base_scan",
+        "angle_min": 0.0,
+        "angle_max": 6.28000020980835,
+        "angle_increment": 0.01749303564429283,
+        "sample_count": 360,
+        "finite_count": 327,
+        "minimum_finite_range": 0.4956046938896179
+      },
+      "/odom": {
+        "frame_id": "odom",
+        "child_frame_id": "base_footprint",
+        "position": {
+          "x": 9.600784784873906e-09,
+          "y": -2.2140387637278275e-21
+        },
+        "orientation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -2.302522098615881e-13,
+          "w": 1.0
+        },
+        "linear_x": 2.150669592637872e-20,
+        "angular_z": 1.3855275260263214e-19
+      },
+      "/student_cmd_vel": {
+        "linear_x": 0.0,
+        "angular_z": 0.0
+      }
+    }
+  },
+  "stable_graph": {
+    "nodes": [
+      "/course_cmd_vel_guard",
+      "/course_evidence_collector",
+      "/robot_state_publisher",
+      "/ros_gz_bridge",
+      "/rviz2",
+      "/transform_listener_impl_5d1edb9193d0"
+    ],
+    "topics": [
+      [
+        "/clicked_point",
+        [
+          "geometry_msgs/msg/PointStamped"
+        ],
+        [
+          "/rviz2"
+        ],
+        []
+      ],
+      [
+        "/clock",
+        [
+          "rosgraph_msgs/msg/Clock"
+        ],
+        [
+          "/ros_gz_bridge"
+        ],
+        [
+          "/robot_state_publisher"
+        ]
+      ],
+      [
+        "/cmd_vel",
+        [
+          "geometry_msgs/msg/TwistStamped"
+        ],
+        [
+          "/course_cmd_vel_guard"
+        ],
+        [
+          "/ros_gz_bridge"
+        ]
+      ],
+      [
+        "/goal_pose",
+        [
+          "geometry_msgs/msg/PoseStamped"
+        ],
+        [
+          "/rviz2"
+        ],
+        []
+      ],
+      [
+        "/imu",
+        [
+          "sensor_msgs/msg/Imu"
+        ],
+        [
+          "/ros_gz_bridge"
+        ],
+        []
+      ],
+      [
+        "/initialpose",
+        [
+          "geometry_msgs/msg/PoseWithCovarianceStamped"
+        ],
+        [
+          "/rviz2"
+        ],
+        []
+      ],
+      [
+        "/joint_states",
+        [
+          "sensor_msgs/msg/JointState"
+        ],
+        [
+          "/ros_gz_bridge"
+        ],
+        [
+          "/robot_state_publisher"
+        ]
+      ],
+      [
+        "/odom",
+        [
+          "nav_msgs/msg/Odometry"
+        ],
+        [
+          "/ros_gz_bridge"
+        ],
+        [
+          "/course_evidence_collector"
+        ]
+      ],
+      [
+        "/parameter_events",
+        [
+          "rcl_interfaces/msg/ParameterEvent"
+        ],
+        [
+          "/course_cmd_vel_guard",
+          "/course_evidence_collector",
+          "/robot_state_publisher",
+          "/ros_gz_bridge",
+          "/rviz2"
+        ],
+        [
+          "/robot_state_publisher",
+          "/ros_gz_bridge",
+          "/rviz2",
+          "/transform_listener_impl_5d1edb9193d0"
+        ]
+      ],
+      [
+        "/robot_description",
+        [
+          "std_msgs/msg/String"
+        ],
+        [
+          "/robot_state_publisher"
+        ],
+        []
+      ],
+      [
+        "/rosout",
+        [
+          "rcl_interfaces/msg/Log"
+        ],
+        [
+          "/course_cmd_vel_guard",
+          "/course_evidence_collector",
+          "/robot_state_publisher",
+          "/ros_gz_bridge",
+          "/rviz2",
+          "/transform_listener_impl_5d1edb9193d0"
+        ],
+        []
+      ],
+      [
+        "/scan",
+        [
+          "sensor_msgs/msg/LaserScan"
+        ],
+        [
+          "/ros_gz_bridge"
+        ],
+        [
+          "/course_evidence_collector"
+        ]
+      ],
+      [
+        "/student_cmd_vel",
+        [
+          "geometry_msgs/msg/Twist"
+        ],
+        [],
+        [
+          "/course_cmd_vel_guard",
+          "/course_evidence_collector"
+        ]
+      ],
+      [
+        "/tf",
+        [
+          "tf2_msgs/msg/TFMessage"
+        ],
+        [
+          "/robot_state_publisher",
+          "/ros_gz_bridge"
+        ],
+        [
+          "/transform_listener_impl_5d1edb9193d0"
+        ]
+      ],
+      [
+        "/tf_static",
+        [
+          "tf2_msgs/msg/TFMessage"
+        ],
+        [
+          "/robot_state_publisher"
+        ],
+        [
+          "/transform_listener_impl_5d1edb9193d0"
+        ]
+      ]
+    ]
+  },
+  "check": [
+    {
+      "id": "graph",
+      "label": "The running robot system was detected",
+      "passed": true,
+      "actual": "detected",
+      "expected": "detected"
+    },
+    {
+      "id": "nodes",
+      "label": "The four guided components are running",
+      "passed": true,
+      "actual": 4,
+      "expected": "4 of 4"
+    },
+    {
+      "id": "topics",
+      "label": "The four guided communication channels are available",
+      "passed": true,
+      "actual": 4,
+      "expected": "4 of 4"
+    },
+    {
+      "id": "endpoints",
+      "label": "The guide can see how the components are connected",
+      "passed": true,
+      "actual": "connected",
+      "expected": "connected"
+    },
+    {
+      "id": "guided_checks",
+      "label": "All six guided terminal observations are marked complete",
+      "passed": true,
+      "actual": 6,
+      "expected": "6 of 6"
+    },
+    {
+      "id": "scan_observation",
+      "label": "The LiDAR observation is recorded",
+      "passed": true,
+      "actual": "complete",
+      "expected": "complete"
+    },
+    {
+      "id": "synthesis",
+      "label": "The three scaffolded explanations are complete",
+      "passed": true,
+      "actual": 3,
+      "expected": "3 of 3"
+    }
+  ]
+}
