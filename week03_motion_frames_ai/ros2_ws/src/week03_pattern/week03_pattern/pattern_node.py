@@ -12,7 +12,7 @@ from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from week03_pattern.pattern import build_pattern
-from week03_pattern.checks import validate, endpoint, source_hash, command_at
+from week03_pattern.checks import validate, endpoint, source_hash
 
 
 def main(args=None):
@@ -23,7 +23,6 @@ def main(args=None):
     readings=[];checkpoints=[];completed=False;interrupted=False;error='';start=None;stopped=False
     root=Path(os.environ.get('WEEK03_SOURCE_ROOT',Path(__file__).resolve().parents[1]))
     signature=source_hash(root)
-    validated=[]
     def receive(msg):
         p,q=msg.pose.pose.position,msg.pose.pose.orientation
         readings.append((time.monotonic(),{'x':p.x,'y':p.y,'theta':math.atan2(2*(q.w*q.z+q.x*q.y),1-2*(q.y*q.y+q.z*q.z))},
@@ -44,7 +43,7 @@ def main(args=None):
                 'y':-math.sin(start['theta'])*dx+math.cos(start['theta'])*dy,
                 'theta':math.atan2(math.sin(a),math.cos(a))}
     try:
-        segments=build_pattern(name);validate(segments);validated=segments
+        segments=build_pattern(name);validate(segments)
         wait=time.monotonic()+10
         while time.monotonic()<wait and (not readings or pub.get_subscription_count()==0): pump(.1)
         if not readings or pub.get_subscription_count()==0: raise RuntimeError('Start Gazebo and the course command guard first')
@@ -64,7 +63,9 @@ def main(args=None):
         error=f'{type(exc).__name__}: {exc}'
     finally:
         if rclpy.ok():
-            stop_time=time.monotonic();stop_v,stop_w=command_at(validated,sum(s.duration for s in validated));pump(.6,stop_v,stop_w)
+            # Stopping is the wrapper's responsibility, even if validation or
+            # timing calculations fail. Never derive the final command from a segment.
+            stop_time=time.monotonic();pump(.6,0.,0.)
             stopped=bool(readings and readings[-1][0]>=stop_time and readings[-1][2]<.02 and readings[-1][3]<.05)
         directory=Path(os.environ.get('WEEK03_EVIDENCE_DIR','runtime/evidence'));directory.mkdir(parents=True,exist_ok=True)
         payload={'captured_at':datetime.now(timezone.utc).isoformat(),'pattern':name,'source_sha256':signature,

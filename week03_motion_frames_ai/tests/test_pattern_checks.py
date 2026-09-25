@@ -32,3 +32,13 @@ class PatternCheckTests(unittest.TestCase):
         self.assertEqual(command_at(segments,2),(0,.5))
         self.assertEqual(command_at(segments,3),(0,0))
         self.assertEqual(command_at([],0),(0,0))
+
+    def test_stop_at_fractional_total_despite_rounding(self):
+        arc_duration=(math.pi/2)/.8
+        segments=[]
+        for distance in (.4,.25,.4,.25):
+            segments.extend((Segment(.2,0,distance/.2),Segment(.12,.8,arc_duration)))
+        total=sum(segment.duration for segment in segments)
+        self.assertEqual(command_at(segments,total-1e-6),(.12,.8))
+        self.assertEqual(command_at(segments,total),(0.,0.))
+        self.assertEqual(command_at(segments,total+1e-6),(0.,0.))

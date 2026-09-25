@@ -25,6 +25,10 @@ def command_at(segments, elapsed):
     """Return (v, omega). Empty patterns and times after completion request a stop."""
     if not math.isfinite(elapsed) or elapsed<0:
         return 0.,0.
+    # sum() and repeated += can differ by a few ulps for fractional durations.
+    # Check the total first so the end time is always a stop, never a final arc.
+    if elapsed>=sum(s.duration for s in segments):
+        return 0.,0.
     boundary=0.
     for s in segments:
         boundary+=s.duration
