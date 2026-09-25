@@ -9,3 +9,7 @@ __pycache__/
 
 # Lab-generated runtime artifacts
 **/runtime/
+
+# Student submissions belong to each student's local checkout, not the starter.
+**/student_submission/**
+!**/student_submission/.gitkeep
