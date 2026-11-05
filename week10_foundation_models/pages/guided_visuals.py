@@ -8,6 +8,26 @@ def svg(body, width=600, height=260):
     return f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}"><rect width="100%" height="100%" fill="#f1f5f9"/><g font-family="sans-serif" font-size="17" fill="#172b43">{body}</g></svg>'
 
 
+def mission_one_setup():
+    """Schematic of the exact places, objects and robot in the capability card."""
+    body = '<text x="20" y="30" font-weight="bold">Mission 1: starting setup</text>'
+    body += '<rect x="18" y="54" width="178" height="164" rx="10" fill="#dbeafe" stroke="#64748b"/>'
+    body += '<text x="32" y="80" font-size="14" font-weight="bold">Base: robot starts here</text>'
+    body += '<circle cx="105" cy="133" r="29" fill="#60a5fa" stroke="#1d4ed8" stroke-width="3"/>'
+    body += '<rect x="68" y="121" width="12" height="31" rx="3" fill="#334155"/><rect x="130" y="121" width="12" height="31" rx="3" fill="#334155"/>'
+    body += '<rect x="97" y="116" width="19" height="13" fill="#172b43"/><circle cx="111" cy="122" r="4" fill="white"/>'
+    body += '<text x="39" y="185" font-size="15">Wheels and camera</text><text x="39" y="205" font-size="15">No arm or gripper</text>'
+    body += '<rect x="216" y="54" width="178" height="164" rx="10" fill="#fef3c7" stroke="#64748b"/>'
+    body += '<text x="237" y="80" font-weight="bold">Shelf</text><path d="M235 158 H375" stroke="#8b5e3c" stroke-width="10"/>'
+    body += '<path d="M279 112 H324 L319 151 H284 Z" fill="#2563eb"/><path d="M324 121 C350 116 350 143 321 139" fill="none" stroke="#2563eb" stroke-width="6"/>'
+    body += '<text x="272" y="193">Known cup</text>'
+    body += '<rect x="414" y="54" width="178" height="164" rx="10" fill="#dcfce7" stroke="#64748b"/>'
+    body += '<text x="435" y="80" font-weight="bold">Desk</text><path d="M433 155 H575 M445 155 V174 M562 155 V174" fill="none" stroke="#8b5e3c" stroke-width="7"/>'
+    body += '<rect x="479" y="116" width="55" height="33" rx="3" fill="#b91c1c"/><path d="M485 140 H528" stroke="white" stroke-width="3"/>'
+    body += '<text x="466" y="193">Known book</text>'
+    return svg(body, 610, 235)
+
+
 def cup_regions(selected=()):
     body = '<path d="M40 205 H560" stroke="#735337" stroke-width="10"/>'
     for name, x, color in (("A", 90, "#2563eb"), ("B", 330, "#d94646")):

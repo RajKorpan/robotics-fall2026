@@ -13,7 +13,7 @@ def compatible(row):
     if not (row.get("task") == "robot" and row.get("kind") == "language" and row.get("case") in (*SCENARIOS, "custom")
             and row.get("model") == MODEL_CONFIG["language"]["id"] and row.get("model_revision") == MODEL_CONFIG["language"]["revision"]
             and row.get("system_prompt") == ROBOT_SYSTEM and row.get("simulator_contract") == contract()
-            and row.get("output_constraint") == "directional rollout v3" and row.get("live_inference") is True
+            and row.get("output_constraint") == "directional rollout v4" and row.get("live_inference") is True
             and row.get("robot_state") == initial_state()):
         return False
     for step in row.get("steps", []):

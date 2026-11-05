@@ -115,7 +115,7 @@ def readiness(state=None):
                     complete = complete and photo.is_file() and hashlib.sha256(photo.read_bytes()).hexdigest() == row.get("image_sha256")
         else:
             from lab.robot_evidence import complete as robot_complete
-            complete = complete and data.get("settings", {}).get("experiment") == "local-robot-v3" and robot_complete(rows, verify_files=True)
+            complete = complete and data.get("settings", {}).get("experiment") == "local-robot-v4" and robot_complete(rows, verify_files=True)
         checks.append({"Requirement": mission.replace("_", " ").title() + " current evidence saved", "Ready": bool(complete and current(mission, state)), "Next action": "Saved and current" if complete and current(mission, state) else "Review changes and Check and save " + mission.replace("_", " ")})
     return checks
 

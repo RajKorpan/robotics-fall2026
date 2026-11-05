@@ -54,10 +54,12 @@ def robot_model(case, output, state=None, phase="baseline", parent=None, prompt=
 
 
 def robot_rollout(case, actions=("STOP",), prompt=None, comparison_ids=None):
-    from simulation.robot_room import initial_state, evaluate, SCENARIOS
+    from simulation.robot_room import initial_state, evaluate, SCENARIOS, MAX_STEPS
     state = initial_state()
     steps = []
     prompt = prompt or ("My custom test prompt" if case == "custom" else SCENARIOS[case]["request"])
+    actions = list(actions)
+    actions += ["STOP"] * max(0, MAX_STEPS-len(actions))
     for action in actions:
         model = robot_model(case, action, state, prompt=prompt)
         result = evaluate(model, state)
@@ -65,7 +67,7 @@ def robot_rollout(case, actions=("STOP",), prompt=None, comparison_ids=None):
         state = result["after"]
     return {**steps[0]["model"], "job_id":uuid.uuid4().hex, "robot_state":initial_state(), "steps":steps,
             "phase":"custom" if case == "custom" else "baseline", "comparison_ids":comparison_ids or [],
-            "output_constraint":"directional rollout v3", "output":" → ".join(actions)}
+            "output_constraint":"directional rollout v4", "output":" â†’ ".join(actions)}
 
 
 def store_robot_runs(state):

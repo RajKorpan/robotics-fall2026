@@ -21,7 +21,7 @@ VISION_TASKS = {
     "spatial": {"label": "Locate", "prompt": "Where is the black vertical metal post relative to the tool in the foreground?"},
     "purpose": {"label": "Decide", "prompt": "A robot needs the correct tool for its task. Which object in this image should it pick up?"},
 }
-VISION_REFERENCE = "A metal drawing compass/divider lies in the foreground. A dark vertical post and its circular base are to its right. A brown leather item lies behind them. The photograph does not specify the robot's task, establish graspability, or show what is inside the closed leather item."
+VISION_REFERENCE = "A metal drawing compass lies in the foreground. A dark vertical post and its circular base are to its right. A brown leather notebook lies behind them. The photograph does not specify the robot's task, establish graspability, or show what else is around."
 
 
 def runtime_dir():

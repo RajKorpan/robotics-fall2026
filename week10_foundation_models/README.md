@@ -35,7 +35,7 @@ Terminal alternative, from the Lab 9 folder using the guide's Python: `python sc
 2. Six connected guided activities explain model roles, grounding, demonstrations and embodiment, adaptation, action execution, and validation. Concrete examples, labeled scene regions, visual comparisons and executable experiments connect each concept to the missions. Tutorials do not require written submissions.
 3. Mission 1 generates all three supplied robot-request answers, displays them together, then unlocks a required student-written improved request and its generated answer. Students finish with one analysis question.
 4. Mission 2 follows the same sequence using one multi-object workbench photograph and three different questions about identification, location and task choice. The exact photograph stays fixed for the student's improved question.
-5. Mission 3 compares three prompts on the same 13 by 9 warehouse maze. The model chooses UP, DOWN, LEFT, RIGHT or STOP one step at a time. Automatic checks block walls. Students write and run a fourth prompt, compare paths and endings, then answer one question. Every run starts from the same map and position.
+5. Mission 3 compares three prompts on the same 13 by 9 warehouse maze. The model chooses UP, DOWN, LEFT, RIGHT or STOP one step at a time. Automatic checks block walls and restrict the following choice to a free neighboring direction or STOP. Students write and run a fourth prompt, compare paths and endings, then answer one question. Every run starts from the same map and position.
 6. One technical synthesis integrates the missions. The separate individual reflection uses the standard course prompts and 1 to 300 word limit.
 
 ## Evidence provenance
@@ -46,7 +46,7 @@ Terminal alternative, from the Lab 9 folder using the guide's Python: `python sc
 - The two missions use different models and tasks. Their results are not a controlled comparison isolating the effect of adding images.
 - References and guided examples are authored teaching materials. They are not presented as model outputs. The vision model receives the chosen image and student question, not the reference answer.
 - The directional grid simulator executes locally. Its state transitions are ordinary Python, not a learned VLA controller.
-- Every Mission 3 action stores the exact model input, raw output, movement check and before/after coordinates. A run stops at the goal, on STOP, on a blocked move or at 36 actions. These are simulated outcomes, not physical navigation or safety results.
+- Every Mission 3 action stores the exact model input, raw output, movement check and before/after coordinates. Every run lasts 50 steps. A blocked move or STOP holds the position for one step, then generation continues. Goal visits are recorded without ending the run. These are simulated outcomes, not physical navigation or safety results.
 - Numerical action decoding and controlled condition traces are synthetic instructional exercises, not learned policy rollouts.
 - The guided model-role activity includes one authentic author-published OpenVLA clip. See [attribution and limitations](assets/policy_recordings/README.md).
 - Videos do not include raw actions or inference timing. The lab does not invent those measurements or claim its selected videos form a controlled benchmark.

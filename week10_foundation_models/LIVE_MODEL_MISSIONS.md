@@ -6,7 +6,7 @@ Mission 1 uses SmolLM2 with one capability card and three robot requests. Missio
 
 Mission 3 uses SmolLM2 on a fixed maze with alternating wall openings. Each run starts at (1,7) and aims for (11,1). The model gets the full ASCII map, current coordinates, goal, labeled objects, free/blocked neighbors and recent actions. The student prompt remains fixed while state updates after each action. Generation permits only UP, DOWN, LEFT, RIGHT or STOP, including normal casing variants. The model chooses the direction. Python checks and executes a single-cell transition. No computed route or recommended action is passed to the model.
 
-One run button replaces the separate ask/check sequence. Live progress shows position, path and current step. A run ends at the goal, on STOP, on a blocked move or after 36 actions. All three supplied prompts must finish before the required own-prompt experiment appears. Completion requires that fourth run and an explanation, even if it fails.
+One run button replaces the separate ask/check sequence. Live progress shows position, path and current step. Every run lasts 50 steps. Wall collisions and STOP hold the position for one step. Feedback is supplied before the next decision. After a blocked move, the next command menu permits only free neighboring directions or STOP. This local constraint does not select a route. Goal visits are recorded without ending the run. All three supplied prompts must finish before the required own-prompt experiment appears. Completion requires that fourth run and an explanation, even if it fails.
 
 ## Local execution
 

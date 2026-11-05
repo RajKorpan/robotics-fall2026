@@ -56,9 +56,9 @@ def generate(kind, request, loaded, status_path, cancel_path):
     input_tokens = inputs["input_ids"].shape[1]
     constraint = None
     if request.get("task") == "robot":
-        from simulation.robot_room import COMMAND_OPTIONS
+        from simulation.robot_room import allowed_commands
         command_tokens = [processor.encode(space + variant, add_special_tokens=False) + [processor.eos_token_id]
-                          for command in COMMAND_OPTIONS for variant in (command, command.title(), command.lower())
+                          for command in allowed_commands(request["robot_state"]) for variant in (command, command.title(), command.lower())
                           for space in ("", " ", "\n", "\n\n")]
         def constraint(batch_id, input_ids):
             prefix = input_ids[input_tokens:].tolist()
@@ -125,7 +125,7 @@ def rollout(request, loaded, status_path, cancel_path):
     return {**request, "steps": steps, "output": " → ".join(s["model"]["output"] for s in steps),
             "model": MODEL_CONFIG["language"]["id"], "model_revision": MODEL_CONFIG["language"]["revision"],
             "system_prompt": steps[0]["model"]["system_prompt"], "live_inference": True,
-            "output_constraint": "directional rollout v3", "generation_seconds": round(time.perf_counter()-start, 3)}
+            "output_constraint": "directional rollout v4", "generation_seconds": round(time.perf_counter()-start, 3)}
 
 
 def serve(kind, queue):

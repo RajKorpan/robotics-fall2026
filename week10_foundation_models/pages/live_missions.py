@@ -4,6 +4,7 @@ from lab.local_jobs import start_job, job_status, cancel_job, installed, live_re
 from lab.drafts import checkpoint, current
 from lab.navigation import bottom_nav
 from pages.workflow import field, locked, meaningful, saved_status
+from pages.guided_visuals import mission_one_setup
 
 
 def job_panel(st, kind, job_id):
@@ -44,6 +45,8 @@ def render_mission(st, kind):
     st.write("Run all three example requests and read their actual answers. Compare what each answer gets right, assumes, or overlooks. Then write one improved request of your own and test it with the same robot capability card." if language else "A robot is helping at a workbench. Use the same photograph for three different questions: identifying a tool, describing its location, and choosing an object for a task. Compare the answers before writing a clearer question of your own.")
     st.caption("Local model: " + MODEL_CONFIG[kind]["id"] + ". Each run generates a new answer on your computer.")
     if language:
+        st.image(mission_one_setup(), width=610)
+        st.caption("Starting setup, shown schematically. The model receives the capability card below as text, not this diagram or a live camera view.")
         with st.container(border=True):
             st.markdown("**Robot capability card supplied with every request**")
             st.write(CAPABILITIES)
@@ -87,7 +90,17 @@ def render_mission(st, kind):
             st.write(VISION_REFERENCE)
             st.caption("This authored reference is not sent to the model.")
     st.subheader("2. Write an improved request of your own")
-    st.write("Use what you noticed in all three examples. Write a clear, feasible request that names the intended object and destination, or explicitly asks for missing information. You may combine useful parts of the examples. This is your required fourth experiment." if language else "Use what the three answers revealed to write a more useful question for this same image. Specify the object, spatial relationship or robot task you mean, and ask the model to distinguish visible facts from missing information. This is your required fourth experiment.")
+    if language:
+        st.write("Use what you noticed in all three examples. Write a clear, feasible request that names the intended object and destination, or explicitly asks for missing information. You may combine useful parts of the examples. This is your required fourth experiment.")
+    else:
+        st.write("Choose ONE task below for your fourth experiment. State the chosen task and its goal at the start of your new request. You are improving the model's answer for that task, rather than asking it to identify, locate and decide all at once.")
+        st.table([
+            {"Choose a task": "Identify", "Robot's goal": "Identify the tool in the foreground. Ask for visible features supporting the name and for uncertainty if the identity is unclear."},
+            {"Choose a task": "Locate", "Robot's goal": "Locate the black vertical post relative to the foreground tool. Ask for an image-based spatial description, without inventing physical distances or world coordinates."},
+            {"Choose a task": "Decide", "Robot's goal": "The robot is preparing to mark a circle on a flat wooden workpiece. Ask which visible tool could help, what image evidence supports the choice, and what must be checked before the robot could use it."},
+        ])
+        st.write("Keep the same photograph. Write the request in your own words, make the selected goal explicit, and ask the model to separate visible evidence from assumptions. For Decide, supplying the missing job is part of the improvement: the original request never said what the robot needed the tool for.")
+        st.caption("After generating the new answer, compare it with the original answer for your selected task. Use the other two examples to notice problems, but do not treat answers to different tasks as a direct comparison of quality.")
     key = "control_live_" + kind + "_custom_prompt"
     own = st.text_area("Your improved request", key=key, max_chars=1200, height=115)
     changed = bool(own.strip()) and own.strip() not in [t["prompt"] for t in tasks.values()]
@@ -107,7 +120,7 @@ def render_mission(st, kind):
         bottom_nav(st, "guided" if language else "mission_1", "mission_2" if language else "mission_3", next_disabled=True)
         return
     st.subheader("3. Explain and save")
-    answer = field(st, "m1_analysis" if language else "m2_analysis", "Did your revised request improve the response? Point to one specific difference and explain whether the proposed actions fit the robot's capabilities." if language else "Did your improved question produce a more useful or better-supported answer than the three examples? Point to one specific difference and use visible evidence from the photograph to explain your judgment.")
+    answer = field(st, "m1_analysis" if language else "m2_analysis", "Did your revised request improve the response? Point to one specific difference and explain whether the proposed actions fit the robot's capabilities." if language else "Which task did you choose, and did your revised request produce a better answer for that goal than the original request for the same task? Point to one specific difference and use visible evidence from the photograph to explain your judgment.")
     ready = records_complete(mission, rows) and meaningful(answer) and not running and own.strip() == custom["prompt"]
     if st.button("Check and save Mission " + str(number), type="primary"):
         if ready:
