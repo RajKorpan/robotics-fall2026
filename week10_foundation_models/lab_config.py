@@ -12,8 +12,8 @@ class LabConfig:
 
 LAB = LabConfig(
     id="week10_foundation_models",
-    title="Week 10: Foundation Models for Robotics",
-    stages=("intro", "concepts", "background", "playground", "lab", "final_submission"),
+    title="Lab 9: Foundation Models for Robotics",
+    stages=("intro", "preflight", "guided", "mission_1", "mission_2", "mission_3", "final_submission"),
     missions=("mission_1", "mission_2", "mission_3"),
 )
 

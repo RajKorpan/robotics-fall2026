@@ -9,7 +9,7 @@ Set this environment up **once** and reuse it for every ROS-based lab:
 - Week 9: planning and navigation
 - Week 11: HRI evaluation
 
-Weeks 4, 5, 10, 12, and 14 are self-contained Python labs and do not require this container.
+Weeks 4, 5, 10, 12, and 14 are self-contained Python labs and do not require this container. Lab 9 in `week10_foundation_models` can also use the course launcher to run its Python guide in the existing container. It does not require a ROS workspace build.
 
 ## What the container provides
 

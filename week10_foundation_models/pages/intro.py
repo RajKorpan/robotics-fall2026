@@ -1,12 +1,10 @@
-from lab.navigation import set_stage
+from lab.navigation import bottom_nav
 
 
 def render(st):
-    st.title("Week 10 — Foundation Models for Robotics")
-    st.subheader("Useful proposals are not permission to act")
-    st.write("You will test a controlled language/vision model interface, locate grounding and capability failures, and place a verification layer between model proposals and robot actions. The goal is capability-versus-reliability reasoning—not model training or prompt tricks.")
-    st.info("This is an individual lab. All experiments, explanations, configurations, and submitted evidence must be your own.")
-    st.markdown("**Estimated time:** 2.5–3.5 hours  \n**Environment:** self-contained Python + Streamlit; no ROS, API key, account, or network access  \n**Submit:** original controlled outputs, measured comparisons, final verifier configuration, explanations, and manifest")
-    student = dict(st.session_state["student"]); student["name"] = st.text_input("Name", value=student["name"]); student["email"] = st.text_input("CUNY email", value=student["email"]); st.session_state["student"] = student
-    if st.button("Begin", type="primary", disabled=not all(v.strip() for v in student.values())): set_stage(st, "concepts")
-
+    st.title("Lab 9: Investigating foundation models for robotics")
+    st.write("How do training data, modalities, action representations and validation affect a robot's ability to interpret a task and act usefully?")
+    st.write("Experiment with a local language model and a local vision-language model. Change a request, inspect the newly generated answer, and compare its claims with robot capabilities or visible image evidence. Then compare how different prompts guide a robot through a maze using one-cell directions.")
+    st.table([{"Stage": "Guided learning", "You will": "Explore model roles, training data, actions and interfaces"}, {"Stage": "Mission 1", "You will": "Compare three robot-request answers, then write and test your own"}, {"Stage": "Mission 2", "You will": "Compare three questions about one workbench photo, then test your own"}, {"Stage": "Mission 3", "You will": "Compare three directional robot runs, then write your own prompt"}])
+    st.write("Answers are saved as you work. Use each mission's Check and save button to retain its experiment evidence. Finish with one technical synthesis and the course reflection, inspect the complete ZIP, and commit your submission folder. Enter your name and email when finalizing.")
+    bottom_nav(st, None, "preflight")

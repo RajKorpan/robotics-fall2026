@@ -1,0 +1,11 @@
+[
+  {
+    "id": "cup_reattempt",
+    "file": "cup_reattempt.mp4",
+    "title": "Put blue cup on plate with reattempt",
+    "url": "https://openvla.github.io/static/videos/qualitative_results/reattempt/openvla--put_blue_cup_on_plate--reattempt.mp4",
+    "model": "OpenVLA, author-published WidowX recording",
+    "description": "Start: a blue cup stands in front of a yellow plate, with a red cup nearby. Middle: the gripper lowers around the blue cup. The cup ends up tipped onto its side beside the plate as the gripper withdraws. The arm approaches again, changes its contact with the cup and lifts it toward the plate. End: the blue cup is held at or above the plate. The visible sequence supports a claim of a second attempt after an unsuccessful first contact. It does not reveal why the policy chose that motion, nor independently verify a stable released final placement.",
+    "raw_actions_available": false
+  }
+]

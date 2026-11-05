@@ -1,0 +1,4 @@
+# Isolated CPU inference environment. Install torch separately from its CPU index.
+transformers==4.57.1
+numpy>=1.26,<2
+pillow>=10,<12

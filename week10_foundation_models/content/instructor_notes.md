@@ -1,10 +1,11 @@
 # Instructor notes
 
-Release `course-fm-1.0` unchanged to all students. The response bank is a controlled experimental instrument: changing outputs during the lab invalidates comparisons.
+Each mission requires three original prompt runs followed by one student-written prompt run and one short analysis. In Missions 1 and 2, original answers remain visible together. Mission 3 compares complete directional robot runs from the same initial maze. Prompt changes are explicit and required. No accuracy threshold gates completion.
 
-Mission 1 should focus on action vocabulary, world-state grounding, prerequisites, ambiguity, and authority—not on improving prose. Mission 2 should emphasize that confidence and correctness are empirically related quantities, not synonyms. Mission 3 should make the model a proposer while independent code owns execution authority.
+M1 uses a fixed robot capability card. M2 uses one multi-object workbench image with identification, spatial and underspecified task-choice questions. M3 gives the language model the full text map and state but no planned route. Only UP, DOWN, LEFT, RIGHT and STOP are allowed. Checks execute one cell at a time and block walls. The robot is a simple local grid simulation, not a physical safety or learned-policy benchmark.
 
-Use the four dispositions consistently. Confirmation is appropriate when a human can legitimately resolve ambiguity or authorize a consequential action. Rejection is appropriate when policy/capability forbids the proposal. Abstention is appropriate when evidence is insufficient. A fallback that continues motion or guesses should not pass.
+Six guided activities remain connected to these experiments and require no written answers. References and recorded demonstrations are labeled separately from live model output. The final synthesis integrates the missions. The reflection uses the exact shared course prompts.
 
-Students must submit individually. Discussion is permitted, but configurations and written analyses should reflect each student's own evidence and reasoning.
+Keep model revisions fixed for the class. Download once and generate offline with the isolated CPU environment. Incorrect answers are often useful evidence. Students should distinguish observed improvements from general reliability claims.
 
+The guide saves exact prompts, outputs, images and simulator transitions. Use `LAB9_SUBMISSION_DIR` for isolated tests. Preserve instructor testing data before resetting the normal test directory. Never clear actual student submissions. Use the unit/UI suite for workflow and evidence checks and the inference scripts for real model behavior.

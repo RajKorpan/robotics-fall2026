@@ -1,81 +1,74 @@
-# Week 10 — Foundation Models for Robotics
+# Lab 9: Investigating Foundation Models for Robotics
 
-An individual, self-contained Streamlit lab about using broad but fallible language and vision-language capabilities inside a bounded robotics architecture.
+This individual lab combines live local language and vision experiments with model-directed robot skills in a small 2D simulator. Models generate new answers on the student's CPU. No external inference service, API key or model training is used. Initial software and model downloads require internet access. Subsequent generation uses local files.
 
-## Central question
+## Start
 
-> If a foundation model is unreliable, what architecture allows us to use it safely anyway?
-
-Students do not train a model and do not need ROS, an API key, an account, or network access. A versioned course response bank produces reproducible language plans and visual interpretations with deliberate ambiguity, hallucinated capabilities, missing prerequisites, false positives, false negatives, and unsafe recommendations. These are instructional fixtures—not benchmark claims about a particular commercial model.
-
-## Learning sequence
-
-1. **Concepts:** separate plausible output from executable, grounded, complete, safe, and authorized output.
-2. **System model:** place schema, grounding, state, policy, human confirmation, fallback, and runtime monitoring between model proposals and actuators.
-3. **Sandbox:** inspect the response banks and test thresholds or verification controls without affecting submission evidence.
-4. **Mission 1 — Language to plan:** evaluate six requests and preserve the original plans; locate capability hallucinations, ambiguity, and missing prerequisites.
-5. **Mission 2 — Vision and language:** compare eight controlled scenes spanning low light, occlusion, ambiguity, unusual objects, misleading context, and partial views; analyze confidence and recommendation failures.
-6. **Mission 3 — Safety and authority:** configure an independent verifier and pass twelve cases containing unsafe requests, conflicts, uncertainty, unavailable actions, and consequential choices.
-7. **Synthesis:** defend a bounded-autonomy architecture and identify residual risk.
-
-## Run
+You can use the shared course Docker environment. From the repository root in Windows PowerShell:
 
 ```powershell
-cd week10_foundation_models
+powershell -ExecutionPolicy Bypass -File .\scripts\ros_course.ps1 lab week10_foundation_models
+```
+
+On macOS/Linux, run `bash scripts/ros_course.sh lab week10_foundation_models`. Open http://localhost:8501. This starts the Python guide without requiring a ROS workspace build. Use the updated launcher in your checkout. An image rebuild is not required for this launcher update.
+
+Alternatively, run locally with Python.
+
+From this folder on Windows PowerShell:
+
+```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
+On macOS/Linux use `python3 -m venv .venv` and `source .venv/bin/activate`, then the same pip and Streamlit commands. The course Docker Python environment can also run the app.
 
-## Required final reflection
+On Preflight select **Prepare local models**, wait for the download to finish, then select **Run preflight**. Preflight actually generates an answer with each model. Installation uses an isolated CPU environment in the user's native cache, leaving ROS dependencies unchanged. Model checkpoints persist under this lab's ignored `runtime/models/` directory. A replacement container may need its isolated Python environment prepared again.
 
-After the technical work, complete the individual [final reflection](../FINAL_REFLECTION.md). Respond to any or all of the five prompts in 1–300 words. A blank response or a response over 300 words cannot finalize the submission. The app saves the response as `student_submission/final_reflection.md`, separate from technical syntheses and mission explanations.
+Terminal alternative, from the Lab 9 folder using the guide's Python: `python scripts/setup_local_models.py`. In the course desktop use `/opt/course-venv/bin/python scripts/setup_local_models.py`. Setup and integration tests are verified on Python 3.12 in the Linux course container. CPU runtime and memory should be checked on other hardware before setting class-wide timing expectations.
 
+## Learning sequence
 
-On macOS/Linux, activate with `source .venv/bin/activate`.
+1. Preflight checks Python packages, files, saving, and actual generation with both downloaded local models.
+2. Six connected guided activities explain model roles, grounding, demonstrations and embodiment, adaptation, action execution, and validation. Concrete examples, labeled scene regions, visual comparisons and executable experiments connect each concept to the missions. Tutorials do not require written submissions.
+3. Mission 1 generates all three supplied robot-request answers, displays them together, then unlocks a required student-written improved request and its generated answer. Students finish with one analysis question.
+4. Mission 2 follows the same sequence using one multi-object workbench photograph and three different questions about identification, location and task choice. The exact photograph stays fixed for the student's improved question.
+5. Mission 3 compares three prompts on the same 13 by 9 warehouse maze. The model chooses UP, DOWN, LEFT, RIGHT or STOP one step at a time. Automatic checks block walls. Students write and run a fourth prompt, compare paths and endings, then answer one question. Every run starts from the same map and position.
+6. One technical synthesis integrates the missions. The separate individual reflection uses the standard course prompts and 1 to 300 word limit.
 
-## What students manipulate
+## Evidence provenance
 
-- the confidence threshold used to accept visual interpretations;
-- grounding and prerequisite validators;
-- an explicit robot-action allowlist;
-- human confirmation for consequential actions; and
-- uncertain-output fallback behavior.
+- Mission 1 uses `HuggingFaceTB/SmolLM2-360M-Instruct`. Mission 2 uses `HuggingFaceTB/SmolVLM-500M-Instruct`. Exact revisions are pinned in `lab/local_config.py`, and both model cards specify Apache 2.0 licensing.
+- Every mission run generates a new response from local weights. The same prompts can produce the same answer because decoding is greedy. Model weights stay frozen.
+- Mission 3 uses the same language checkpoint as Mission 1 with a directional command grammar. The model receives the full text map, coordinates, object locations, neighboring-cell status and recent actions. The grammar controls format, not which move is correct. No planner selects or repairs model moves.
+- The two missions use different models and tasks. Their results are not a controlled comparison isolating the effect of adding images.
+- References and guided examples are authored teaching materials. They are not presented as model outputs. The vision model receives the chosen image and student question, not the reference answer.
+- The directional grid simulator executes locally. Its state transitions are ordinary Python, not a learned VLA controller.
+- Every Mission 3 action stores the exact model input, raw output, movement check and before/after coordinates. A run stops at the goal, on STOP, on a blocked move or at 36 actions. These are simulated outcomes, not physical navigation or safety results.
+- Numerical action decoding and controlled condition traces are synthetic instructional exercises, not learned policy rollouts.
+- The guided model-role activity includes one authentic author-published OpenVLA clip. See [attribution and limitations](assets/policy_recordings/README.md).
+- Videos do not include raw actions or inference timing. The lab does not invent those measurements or claim its selected videos form a controlled benchmark.
 
-The final verification interface returns exactly one disposition:
+## Saving and recovery
 
-```text
-EXECUTE  — bounded, validated action may enter the skill layer
-CONFIRM  — a person must resolve ambiguity or authorize consequence
-ABSTAIN  — evidence is insufficient; stop and request clarification
-REJECT   — action/circumstance violates capability, state, or policy
-```
+Responses and major controls autosave atomically when edits are applied. Press Ctrl+Enter or click outside a text field to apply an edit. Navigation synchronizes pending widget values before saving. Each generated result retains its prompt, raw response, model revision, decoding settings and duration. Vision attempts include a copy and SHA-256 hash of the exact input image. Check and save retains the selected experiment history and explanation. New runs or edited analysis make completion out of date. Replacing a checked run archives its previous snapshot. Downstream completion depends on the exact upstream run.
 
-Confidence is deliberately insufficient by itself. High-confidence proposals can still be ungrounded or prohibited, and valid lower-confidence proposals may need abstention.
+Restarting restores answers and evidence, then requests a fresh preflight before resuming. The sidebar cannot bypass preflight or the six guided activities. Prior-version submissions are preserved and old answers are loaded where available, but they are not silently marked complete under new requirements.
 
-## Submission
+Finalization writes one complete ZIP and a SHA-256 manifest. Inspect the files, keep a backup, commit and push `week10_foundation_models/student_submission/`, then submit the commit link. Student evidence is not gitignored.
 
-This is an **individual lab**. Submit `student_submission/` plus the individual Git commit. The generated directory contains:
+Cancelled, empty or failed generations do not satisfy trial requirements. Incorrect but successfully generated answers do count, since evaluating their limitations is part of the experiment. The UI shows progress and permits cancellation. Loaded models stay available in local worker processes until idle shutdown.
 
-- every original controlled model output and disposition;
-- mission settings and metrics;
-- visual scene SVG artifacts;
-- requirement results and 40+ word mission explanations;
-- a 200–300 word final synthesis; and
-- `manifest.json`.
+## Maintainer verification
 
-## Instructor notes
-
-The course bank is intentionally inspectable. This prevents API drift, expense, privacy exposure, and unequal results from obscuring the systems lesson. If an instructor adds a live-model extension, keep it ungraded, record model/provider/version/date and exact prompts, prohibit sensitive images, and retain the frozen bank as the graded baseline.
-
-Do not describe a passing verifier as proof of safety. It passes twelve specified tests. Ask students which distributions, sensor failures, tool side effects, prompt/context attacks, timing failures, and human factors remain outside the evidence.
-
-## Maintainer checks
-
-```powershell
+```bash
 python app.py --smoke-test
 python -m unittest discover -s tests -v
-python -m compileall -q .
+# Use the isolated model Python printed by setup for this real inference check:
+python scripts/check_local_inference.py
+python scripts/check_robot_inference.py
 ```
+
+App tests use isolated temporary submission folders. They do not populate or clear student work. `LAB9_SUBMISSION_DIR` can select an isolated location for manual QA. Do not commit instructor solutions or test responses.

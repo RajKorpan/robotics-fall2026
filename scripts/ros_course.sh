@@ -18,7 +18,7 @@ case "$command" in
     lab="${2:-}"
     [[ -n "$lab" ]] || { echo "Provide a lab directory, for example: week01_ros_foundations" >&2; exit 2; }
     docker compose up -d
-    docker compose exec course-ros course-lab "$lab"
+    docker compose exec course-ros bash /workspace/docker/scripts/course-lab "$lab"
     ;;
   stop) docker compose down ;;
   status) docker compose ps ;;
