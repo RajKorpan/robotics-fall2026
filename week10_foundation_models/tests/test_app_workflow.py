@@ -48,7 +48,7 @@ class AppWorkflowTests(unittest.TestCase):
     def save_language(self, at):
         store_runs(at.session_state, "language")
         at.run()
-        at.text_area(key="m1_analysis").input(ANSWER).run()
+        at.text_area(key="draft.m1_analysis").input(ANSWER).run()
         next(b for b in at.button if b.label == "Check and save Mission 1").click().run()
         self.assertTrue(current("mission_1", at.session_state))
 
@@ -81,7 +81,7 @@ class AppWorkflowTests(unittest.TestCase):
         at.run()
         self.assert_page_ok(at)
         self.assertEqual(len(at.get("video")), 0)
-        self.assertFalse(any(w.key == "m3_analysis" for w in at.text_area))
+        self.assertFalse(any(w.key == "draft.m3_analysis" for w in at.text_area))
 
     def test_complete_student_workflow_exports_and_recovers(self):
         at = self.app_at("mission_1")
@@ -89,18 +89,18 @@ class AppWorkflowTests(unittest.TestCase):
         at.session_state["stage"] = "mission_2"
         store_runs(at.session_state, "vision")
         at.run()
-        at.text_area(key="m2_analysis").input(ANSWER).run()
+        at.text_area(key="draft.m2_analysis").input(ANSWER).run()
         next(b for b in at.button if b.label == "Check and save Mission 2").click().run()
         self.assertTrue(current("mission_2", at.session_state))
         at.session_state["stage"] = "mission_3"
         store_robot_runs(at.session_state)
         at.run()
-        at.text_area(key="m3_analysis").input(ANSWER).run()
+        at.text_area(key="draft.m3_analysis").input(ANSWER).run()
         next(b for b in at.button if b.label == "Check and save Mission 3").click().run()
         self.assertTrue(all(c["Ready"] for c in readiness(at.session_state)))
         at.session_state["stage"] = "final_submission"
         at.run()
-        at.text_area(key="final_synthesis").input(" ".join([ANSWER] * 4))
+        at.text_area(key="draft.final_synthesis").input(" ".join([ANSWER] * 4))
         at.text_area(key="field.final.course_reflection").input(ANSWER)
         next(w for w in at.text_input if w.label == "Name").input("QA only")
         next(w for w in at.text_input if w.label == "Student ID or email").input("qa@example.invalid")
@@ -128,11 +128,11 @@ class AppWorkflowTests(unittest.TestCase):
         checkpoint("mission_2", at.session_state, {}, [{"fixture": True}], {})
         at.session_state["stage"] = "mission_3"
         at.run()
-        self.assertFalse(any(w.key == "control_robot_custom_prompt" for w in at.text_area))
+        self.assertFalse(any(w.key == "draft.control_robot_custom_prompt" for w in at.text_area))
         rows = store_robot_runs(at.session_state)
         at.run()
         self.assert_page_ok(at)
-        self.assertTrue(at.text_area(key="control_robot_custom_prompt"))
+        self.assertTrue(at.text_area(key="draft.control_robot_custom_prompt"))
         self.assertTrue(all(simulation_path(r["record"]["job_id"]).exists() for r in rows))
         self.assertFalse(any(b.label == "Check and simulate" for b in at.button))
         self.assertEqual(len(checked_rows(at.session_state)), 4)
@@ -152,11 +152,60 @@ class AppWorkflowTests(unittest.TestCase):
         at = self.app_at("mission_1")
         self.save_language(at)
         edited = ANSWER + " This last edit must survive immediate navigation."
-        at.text_area(key="m1_analysis").input(edited)
+        at.text_area(key="draft.m1_analysis").input(edited)
         at.button(key="nav.guided").click().run()
         self.assertEqual(at.session_state["responses"]["m1_analysis"], edited)
         self.assertFalse(current("mission_1", at.session_state))
         self.assertTrue(at.button(key="nav.mission_2").disabled)
+
+    def test_robot_run_reruns_and_return_preserve_mission_two_answer(self):
+        at=self.app_at("mission_1")
+        self.save_language(at)
+        at.session_state["stage"]="mission_2"
+        store_runs(at.session_state,"vision")
+        at.run()
+        at.text_area(key="draft.m2_analysis").input(ANSWER).run()
+        next(b for b in at.button if b.label=="Check and save Mission 2").click().run()
+        prompt=at.session_state["controls"]["control_live_vision_custom_prompt"]
+        at.button(key="bottom_next").click().run()
+        with patch("pages.investigation_3.start_job",return_value="fixture-active-robot"), patch("pages.investigation_3.job_status",return_value={"status":"generating","step":1,"completed_steps":0}):
+            at.button(key="robot_run_goal").click().run()
+            for _ in range(3):
+                at.run()
+                self.assert_page_ok(at)
+                self.assertTrue(current("mission_2",at.session_state))
+                self.assertEqual(at.session_state["responses"]["m2_analysis"],ANSWER)
+            at.button(key="bottom_back").click().run()
+        self.assertEqual(at.text_area(key="draft.m2_analysis").value,ANSWER)
+        self.assertEqual(at.text_area(key="draft.control_live_vision_custom_prompt").value,prompt)
+
+    def test_explicit_answer_clear_is_not_recovered_over_the_edit(self):
+        at=self.app_at("mission_1")
+        self.save_language(at)
+        at.text_area(key="draft.m1_analysis").input("").run()
+        self.assertIn("m1_analysis",at.session_state["response_cleared"])
+        self.assertFalse(current("mission_1",at.session_state))
+        from lab.evidence import load_progress
+        self.assertEqual(load_progress()["responses"]["m1_analysis"],"")
+
+    def test_locked_page_recovers_checked_writing_without_model_calls(self):
+        at=self.app_at("mission_1")
+        self.save_language(at)
+        at.session_state["stage"]="mission_2"
+        store_runs(at.session_state,"vision")
+        at.run()
+        at.text_area(key="draft.m2_analysis").input(ANSWER).run()
+        next(b for b in at.button if b.label=="Check and save Mission 2").click().run()
+        at.button(key="bottom_next").click().run()
+        responses=dict(at.session_state["responses"])
+        responses["m2_analysis"]=""
+        at.session_state["responses"]=responses
+        at.run()
+        with patch("pages.investigation_3.start_job") as start:
+            at.button(key="recover-mission_2").click().run()
+            start.assert_not_called()
+        self.assertEqual(at.session_state["responses"]["m2_analysis"],ANSWER)
+        self.assertTrue(current("mission_2",at.session_state))
 
     def test_three_outputs_unlock_custom_prompt_and_fourth_output_unlocks_question(self):
         for kind,stage in (("language","mission_1"),("vision","mission_2")):
@@ -175,12 +224,12 @@ class AppWorkflowTests(unittest.TestCase):
                 self.assertFalse(any(b.label.startswith("Check and save Mission") for b in at.button))
             at.session_state[key] = [r["job_id"] for r in rows[:3]]
             at.run()
-            self.assertTrue(at.text_area(key="control_live_" + kind + "_custom_prompt"))
+            self.assertTrue(at.text_area(key="draft.control_live_" + kind + "_custom_prompt"))
             self.assertEqual(sum(i.value == rows[0]["output"] for i in at.info), 3)
-            self.assertFalse(any(w.key == ("m1_analysis" if kind == "language" else "m2_analysis") for w in at.text_area))
+            self.assertFalse(any(w.key == ("draft.m1_analysis" if kind == "language" else "draft.m2_analysis") for w in at.text_area))
             at.session_state[key] = [r["job_id"] for r in rows]
             at.run()
-            self.assertTrue(at.text_area(key="m1_analysis" if kind == "language" else "m2_analysis"))
+            self.assertTrue(at.text_area(key="draft.m1_analysis" if kind == "language" else "draft.m2_analysis"))
 
     def test_restart_recovers_a_progress_record_with_optional_null_fields(self):
         save_progress({"stage": "intro", "responses": {}, "controls": {}, "student": {}})

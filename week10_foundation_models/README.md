@@ -38,6 +38,14 @@ Terminal alternative, from the Lab 9 folder using the guide's Python: `python sc
 5. Mission 3 compares three prompts on the same 13 by 9 warehouse maze. The model chooses UP, DOWN, LEFT, RIGHT or STOP one step at a time. Automatic checks block walls and restrict the following choice to a free neighboring direction or STOP. Students write and run a fourth prompt, compare paths and endings, then answer one question. Every run starts from the same map and position.
 6. One technical synthesis integrates the missions. The separate individual reflection uses the standard course prompts and 1 to 300 word limit.
 
+## Recovering a missing answer or a locked mission
+
+Answers and prompt text are saved independently of page widgets. Starting a robot experiment does not change an earlier mission's writing. A deliberate edit still requires checking and saving that mission again. The guide explains which answer, selected run, or experiment specification changed.
+
+If an older version left a written answer blank, reopening the updated guide recovers missing writing from checked evidence. Nonblank drafts and deliberately cleared answers are preserved. The locked page also offers Recover missing checked answers. Unchanged model runs need not be repeated just to restore writing. The checked answer is in `student_submission/mission_2/analysis.md`, and the complete checked record is in `mission_2/evidence_v2.json`.
+
+Preserve the whole submission folder before updating. Autosave retains a readable backup and archives previous nonblank responses when they are cleared. Download or copy your submission backup before investigating a problem. Never reset or delete student work as a troubleshooting step.
+
 ## Evidence provenance
 
 - Mission 1 uses `HuggingFaceTB/SmolLM2-360M-Instruct`. Mission 2 uses `HuggingFaceTB/SmolVLM-500M-Instruct`. Exact revisions are pinned in `lab/local_config.py`, and both model cards specify Apache 2.0 licensing.

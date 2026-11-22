@@ -53,17 +53,66 @@ def read_json(path, default=None):
 
 
 def save_progress(state):
-    data = {key: state.get(key) for key in ("stage", "responses", "student", "tutorial_step", "tutorial_reviewed", "controls", "guided_version", "guided_seen", "response_widgets")}
+    data = {key: state.get(key) for key in ("stage", "responses", "student", "tutorial_step", "tutorial_reviewed", "controls", "guided_version", "guided_seen", "response_widgets", "response_cleared", "control_cleared")}
     data["version"] = VERSION
-    write_json(root() / "autosave" / "progress_v2.json", data)
+    path = root() / "autosave" / "progress_v2.json"
+    previous = read_json(path,{})
+    if previous == data:
+        return
+    if previous and previous != data:
+        write_json(path.with_name("progress_v2.backup.json"),previous)
+        lost = {key:value for key,value in (previous.get("responses") or {}).items()
+                if value and not (data.get("responses") or {}).get(key)}
+        if lost:
+            write_json(path.with_name("responses.recovery."+uuid.uuid4().hex+".json"),lost)
+    write_json(path, data)
 
 
 def load_progress():
     data = read_json(root() / "autosave" / "progress_v2.json", {})
+    if not data:
+        data = read_json(root() / "autosave" / "progress_v2.backup.json", {})
     if data.get("version") == VERSION:
-        return data
+        return recover_checked_answers(data)
     legacy = read_json(root() / "autosave" / "responses.json", {})
-    return {"responses": legacy.get("responses", {}), "student": legacy.get("student", {}), "stage": "intro"} if legacy else {}
+    return recover_checked_answers({"responses": legacy.get("responses", {}), "student": legacy.get("student", {}), "stage": "intro"} if legacy else {})
+
+
+def recover_checked_answers(data):
+    """Recover missing writing only. Preserve nonblank drafts and intentional clears."""
+    from lab.drafts import RESPONSE_KEYS, CONTROL_KEYS
+    responses = dict(data.get("responses") or {})
+    controls = dict(data.get("controls") or {})
+    edited = set(data.get("response_cleared") or [])
+    recovered = []
+    for mission, keys in RESPONSE_KEYS.items():
+        saved = saved_run(mission)
+        if not saved:
+            continue
+        snapshot = saved.get("extra", {}).get("draft_inputs", {})
+        for key in keys:
+            answer = snapshot.get("responses", {}).get(key) or saved.get("responses", {}).get("analysis", "")
+            if not str(responses.get(key) or "").strip() and key not in edited and answer:
+                responses[key] = answer
+                recovered.append(mission.replace("_", " ").title())
+        # Keep current settings when present. Older checkpoints can recover the
+        # exact completed job IDs and custom prompt from their preserved records.
+        rows = saved.get("rows", [])
+        proposed = dict(snapshot.get("controls", {}))
+        ids_key, prompt_key = CONTROL_KEYS[mission]
+        if mission in ("mission_1", "mission_2"):
+            proposed.setdefault(ids_key,[r["job_id"] for r in rows if "job_id" in r])
+            custom = next((r for r in reversed(rows) if r.get("phase")=="custom"),{})
+            proposed.setdefault(prompt_key,custom.get("prompt",""))
+        for key,value in proposed.items():
+            missing_prompt = key == prompt_key and not str(controls.get(key) or "").strip() and key not in (data.get("control_cleared") or [])
+            if key not in controls or controls[key] is None or missing_prompt:
+                controls[key] = value
+    if responses or controls:
+        data["responses"], data["controls"] = responses, controls
+    if recovered:
+        data["recovered_answers"] = recovered
+    return data
 
 
 def save_run(mission, settings, rows, responses, extra=None):

@@ -76,6 +76,11 @@ def preflight(st, work):
             st.image(client().image, caption="The Gazebo room. Green is the person station, yellow the correction checkpoint, and red and blue the cup stations.", width="stretch")
     else:
         st.info("Waiting for the Gazebo world and ROS controller. Run the command in Terminal 1, wait for the robot to appear, and refresh the checks.")
+        with st.expander("ROS checks still waiting or an old topic command hangs?"):
+            st.write("The current controller is lab10_interaction and the guide sends requests on /lab10/input. An old week11_interaction_demo node or /hri/command instruction belongs to the previous lab. Stop that demo with Ctrl+C, restart the current guide using the course launcher, and launch the handover world above.")
+            st.write("In a second virtual-desktop terminal, run these checks. Sourcing ros_env.sh selects this lab's workspace and ROS domain 31 in that terminal.")
+            st.code("cd /workspace/week11_hri_evaluation\nsource scripts/ros_env.sh\nros2 node list\nros2 topic info /lab10/input --verbose",language="bash")
+            st.write("Expect /lab10_interaction and a subscription on /lab10/input. If either is absent, inspect Terminal 1 for launch errors and copy the output for the instructor. You do not need ros2 topic pub commands to complete preflight.")
     st.write("Use the microphone button below to record “Bring me the blue cup.” Stop recording, play the clip back, and select Check recording.")
     st.caption("If the recorder never starts, allow microphone access in your browser's site settings and check that your operating system allows the browser to use the microphone. If playback is quiet, select the correct microphone in your sound settings and try again.")
     st.caption("The recorder sends this clip to the local guide for transcription. Saved lab evidence contains text and controller events.")

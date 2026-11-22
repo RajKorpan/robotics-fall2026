@@ -6,4 +6,5 @@ pillow>=10,<12
 pandas>=2.0,<3
 matplotlib>=3.8,<4
 numpy>=1.26,<2
-pocketsphinx==5.0.4
+# 5.0.4's source build rejects modern scikit-build-core on Linux ARM64.
+pocketsphinx==5.1.0

@@ -28,7 +28,7 @@ def run_app():
     st.set_page_config(page_title=LAB.title, page_icon="🧠", layout="wide")
     if "initialized_v2" not in st.session_state:
         saved = load_progress()
-        defaults = {"stage": "intro", "responses": {}, "student": {"name": "", "email": ""}, "tutorial_step": 0, "tutorial_reviewed": 0, "controls": {}, "response_widgets": [], "guided_seen": [], "guided_version": GUIDED_VERSION}
+        defaults = {"stage": "intro", "responses": {}, "student": {"name": "", "email": ""}, "tutorial_step": 0, "tutorial_reviewed": 0, "controls": {}, "response_widgets": [], "response_cleared": [], "control_cleared": [], "guided_seen": [], "guided_version": GUIDED_VERSION}
         for key, value in defaults.items():
             st.session_state[key] = saved[key] if saved.get(key) is not None else value
         if saved and saved.get("guided_version") != GUIDED_VERSION:
@@ -39,6 +39,7 @@ def run_app():
         if st.session_state["stage"] not in PAGES:
             st.session_state["stage"] = "intro"
         st.session_state["initialized_v2"] = True
+        st.session_state["recovered_answers"] = saved.get("recovered_answers", [])
         st.session_state["scroll_top"] = True
         # Preflight is a fresh environment check, never an optimistic saved claim.
         if st.session_state["stage"] not in ("intro", "preflight"):
@@ -52,6 +53,8 @@ def run_app():
         if key not in st.session_state:
             st.session_state[key] = value
     render_progress(st)
+    if st.session_state.get("recovered_answers"):
+        st.info("Recovered missing writing from your checked evidence: "+", ".join(st.session_state["recovered_answers"])+". Review the recovered answers before submitting. Your model runs were preserved.")
     st.session_state["field_hint_shown"] = False
     PAGES[current_stage(st)](st)
     try:

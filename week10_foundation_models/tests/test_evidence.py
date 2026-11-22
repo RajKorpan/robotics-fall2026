@@ -91,6 +91,39 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(state["controls"]["control_live_language_case"], "ambiguous")
         self.assertEqual(state["student"]["email"], "id")
 
+    def test_hidden_widgets_cannot_erase_a_checked_earlier_mission(self):
+        state={"stage":"mission_3","responses":{"m2_analysis":"Preserved answer"},
+               "controls":{"control_live_vision_custom_prompt":"Preserved prompt"},
+               "response_widgets":["m2_analysis"],"m2_analysis":"",
+               "response_widget_map":{"draft.m2_analysis":"m2_analysis"},"draft.m2_analysis":"",
+               "control_live_vision_custom_prompt":""}
+        capture_inputs(state)
+        self.assertEqual(state["responses"]["m2_analysis"],"Preserved answer")
+        self.assertEqual(state["controls"]["control_live_vision_custom_prompt"],"Preserved prompt")
+
+    def test_missing_writing_recovers_from_checked_evidence_without_rerunning(self):
+        save_run("mission_2",{},[{"job_id":"already-generated","phase":"custom","prompt":"Original prompt"}],{"analysis":"Original checked answer"})
+        save_progress({"responses":{"m2_analysis":""},"controls":{},"stage":"mission_3"})
+        recovered=load_progress()
+        self.assertEqual(recovered["responses"]["m2_analysis"],"Original checked answer")
+        self.assertEqual(recovered["controls"]["control_live_vision_runs"],["already-generated"])
+        self.assertEqual(recovered["controls"]["control_live_vision_custom_prompt"],"Original prompt")
+        save_progress({"responses":{},"controls":{"control_live_vision_custom_prompt":""}})
+        self.assertEqual(load_progress()["controls"]["control_live_vision_custom_prompt"],"Original prompt")
+        save_progress({"responses":{},"controls":{"control_live_vision_custom_prompt":""},"control_cleared":["control_live_vision_custom_prompt"]})
+        self.assertEqual(load_progress()["controls"]["control_live_vision_custom_prompt"],"")
+        save_progress({"responses":{"m2_analysis":"My unsaved revision"},"controls":{},"stage":"mission_2"})
+        self.assertEqual(load_progress()["responses"]["m2_analysis"],"My unsaved revision")
+        save_progress({"responses":{"m2_analysis":""},"response_cleared":["m2_analysis"],"controls":{}})
+        self.assertEqual(load_progress()["responses"]["m2_analysis"],"")
+        self.assertTrue(list((root()/"autosave").glob("responses.recovery.*.json")))
+
+    def test_corrupt_progress_recovers_a_readable_backup(self):
+        save_progress({"responses":{"m2_analysis":"Previous draft"},"controls":{}})
+        save_progress({"responses":{"m2_analysis":"Latest draft"},"controls":{}})
+        (root()/"autosave/progress_v2.json").write_text("corrupt")
+        self.assertEqual(load_progress()["responses"]["m2_analysis"],"Previous draft")
+
 
 if __name__ == "__main__":
     unittest.main()

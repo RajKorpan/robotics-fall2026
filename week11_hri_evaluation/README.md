@@ -18,6 +18,8 @@ bash scripts/ros_course.sh lab week11_hri_evaluation
 
 The launcher builds the Lab 10 ROS package and prepares the local speech recognizer. The first speech-package installation needs an internet connection. Open the guide at **http://localhost:8501** in your computer's browser and the virtual desktop at **http://localhost:6080/vnc.html?autoconnect=1&resize=remote**. Use the microphone recorder in your computer's browser and allow microphone access.
 
+For initial Docker setup and rebuilding the image, see [the shared ROS setup](../ROS_DOCKER_SETUP.md).
+
 On the preflight page, launch the world in Terminal 1 of the virtual desktop.
 
 ```bash
@@ -28,6 +30,14 @@ bash scripts/launch_handover.sh
 Keep Terminal 1 running. Gazebo opens the cup delivery room with a green person station, red and blue cup stations, and a yellow correction checkpoint. Refresh the guide's ROS checks. It must receive fresh odometry from the world. Record the example phrase, play the clip, and check its transcript.
 
 If the microphone recorder cannot start, allow access in the browser site settings and operating system privacy settings. Quiet or silent playback usually means the wrong microphone is selected. A clear clip with no recognized phrase means the decoder could not match its limited English vocabulary. Try the short example phrase. Recognition runs in the course container. The browser sends microphone recordings to that local guide.
+
+### Troubleshooting an older guide or rebuild
+
+The current preflight checks Gazebo, ROS, saving, and a microphone recording. It has no terminal-output field. If your instructions say `launch_interaction.sh`, publish `/hri/command`, or paste preflight output, you are viewing the previous version. Preserve `student_submission`, update your course checkout using the course's fork-update instructions, close the old demo terminal with Ctrl+C, and restart the guide with the course launcher above. Do not reset or delete your work.
+
+`Waiting for at least 1 matching subscription` means a topic publisher has not found a compatible receiving node. Manual topic publication is not part of the current preflight. Launch `launch_handover.sh` and use the guide's ROS checks. The troubleshooting expander provides commands for checking the controller and selecting domain 31 consistently.
+
+PocketSphinx 5.0.4 can fail when compiled inside the Linux ARM64 container used on Apple Silicon Macs. The updated dependencies use 5.1.0 and validate the actual course decoder. After updating, rebuild the image from your computer's repository terminal with `bash scripts/ros_course.sh setup`, then start the lab. Source compilation can take several minutes on the first build. Builds use two CMake jobs to limit memory pressure. Installing PocketSphinx on the host Mac does not update the container. A failed dependency build does not erase your submission folder.
 
 ## Four guided activities
 

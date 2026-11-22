@@ -2,7 +2,7 @@
 import html
 
 from lab.evidence import root, saved_run, save_progress
-from lab.drafts import current, capture_inputs
+from lab.drafts import current, capture_inputs, stale_reason
 
 
 def field(st, key, label, height=130):
@@ -10,19 +10,53 @@ def field(st, key, label, height=130):
     if not host.session_state.get("field_hint_shown"):
         st.caption("Press Ctrl+Enter or click outside a text field to apply and autosave your edit. Check and save retains the complete experiment.")
         host.session_state["field_hint_shown"] = True
-    keys = list(host.session_state.get("response_widgets", []))
-    if key not in keys:
-        host.session_state["response_widgets"] = keys + [key]
-    if key not in host.session_state:
-        host.session_state[key] = host.session_state["responses"].get(key, "")
+    widget = "draft."+key
+    mapping = dict(host.session_state.get("response_widget_map", {}))
+    mapping[widget] = key
+    host.session_state["response_widget_map"] = mapping
+    if widget not in host.session_state:
+        host.session_state[widget] = host.session_state["responses"].get(key, "")
     def changed():
+        # Record an intentional clear, so recovery cannot undo the student's edit.
+        cleared = set(host.session_state.get("response_cleared", []))
+        if host.session_state[widget].strip():
+            cleared.discard(key)
+        else:
+            cleared.add(key)
+        host.session_state["response_cleared"] = sorted(cleared)
         capture_inputs(host.session_state)
         try:
             save_progress(host.session_state)
         except OSError as error:
             host.session_state["save_error"] = str(error)
-    value = st.text_area(label, key=key, height=height, on_change=changed)
+    value = st.text_area(label, key=widget, height=height, on_change=changed)
     host.session_state["responses"][key] = value
+    return value
+
+
+def control_text(st, key, label, **kwargs):
+    """Keep prompt text in durable controls, separate from disposable widgets."""
+    state = st.session_state
+    widget = "draft."+key
+    if widget not in state:
+        state[widget] = state.get("controls", {}).get(key, state.get(key, "")) or ""
+    def changed():
+        state[key] = state[widget]
+        state["controls"][key] = state[widget]
+        cleared = set(state.get("control_cleared",[]))
+        if state[widget].strip():
+            cleared.discard(key)
+        else:
+            cleared.add(key)
+        state["control_cleared"] = sorted(cleared)
+        capture_inputs(state)
+        try:
+            save_progress(state)
+        except OSError as error:
+            state["save_error"] = str(error)
+    value = st.text_area(label,key=widget,on_change=changed,**kwargs)
+    state[key] = value
+    state["controls"][key] = value
     return value
 
 
@@ -45,6 +79,18 @@ def trajectory_svg(rows, scale=1):
 def locked(st, previous):
     if not current(previous, st.session_state):
         st.info("Review changes and save " + previous.replace("_", " ").title() + " before beginning this investigation. Your earlier evidence is retained.")
+        st.write(stale_reason(previous,st.session_state))
+        st.caption("Saved writing is also in student_submission/"+previous+"/analysis.md. You do not need to regenerate unchanged model answers just to restore writing.")
+        if st.button("Recover missing checked answers",key="recover-"+previous):
+            from lab.evidence import recover_checked_answers
+            restored = recover_checked_answers({"responses":dict(st.session_state["responses"]),
+                "controls":dict(st.session_state["controls"]),"response_cleared":st.session_state.get("response_cleared",[]),
+                "control_cleared":st.session_state.get("control_cleared",[])})
+            st.session_state["responses"] = restored.get("responses",st.session_state["responses"])
+            st.session_state["controls"] = restored.get("controls",st.session_state["controls"])
+            st.session_state["recovered_answers"] = restored.get("recovered_answers",[])
+            save_progress(st.session_state)
+            st.rerun()
         from lab.navigation import bottom_nav
         bottom_nav(st, previous, None)
         return True

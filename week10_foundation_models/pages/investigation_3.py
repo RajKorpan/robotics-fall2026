@@ -4,7 +4,7 @@ from lab.local_jobs import installed, start_job, job_status, cancel_job
 from lab.robot_evidence import checked_rows, complete
 from lab.drafts import checkpoint, current
 from lab.navigation import bottom_nav
-from pages.workflow import field, locked, meaningful, saved_status
+from pages.workflow import control_text, field, locked, meaningful, saved_status
 from pages.robot_visuals import room_svg
 from simulation.robot_room import SCENARIOS, COMMANDS, initial_state, contract, model_message, ROBOT_SYSTEM, MAX_STEPS
 
@@ -101,7 +101,7 @@ def render(st):
         st.subheader("2. Compare the results, then write your own prompt")
         st.dataframe([{"Prompt": SCENARIOS[r["record"]["case"]]["label"], "Goal visited": r["simulation"]["goal_reached"], "First goal step": r["simulation"]["first_goal_step"], "Blocked moves": r["simulation"]["blocked_actions"], "STOP steps": r["simulation"]["stop_actions"], "Moves": r["simulation"]["moves"], "Final position": str(r["simulation"]["after"]["position"])} for r in baselines.values()], hide_index=True)
         st.write("Compare the green paths with the wall openings. Which prompt helped the robot make progress? Where did it repeat moves, pause, or try to cross a wall? A longer or more detailed prompt does not guarantee a better path. Use those observations to write a fourth prompt in your own words. Give the robot useful route or decision guidance without changing its map or actions.")
-        prompt = st.text_area("Your own robot prompt (required)", key="control_robot_custom_prompt", max_chars=1200, height=130)
+        prompt = control_text(st, "control_robot_custom_prompt", "Your own robot prompt (required)", max_chars=1200, height=130)
         valid = bool(prompt.strip()) and prompt.strip() not in [s["request"] for s in SCENARIOS.values()]
         if st.button("Run robot with my prompt", key="robot_run_custom", disabled=running or not valid):
             begin(st, "custom", prompt, [r["record"]["job_id"] for r in baselines.values()])

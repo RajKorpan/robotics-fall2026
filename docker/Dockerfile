@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dbus-x11 \
     fluxbox \
     git \
+    libportaudio2 \
     mesa-utils \
     nano \
     novnc \
@@ -48,7 +49,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY docker/requirements.txt /tmp/course-requirements.txt
 RUN python3 -m venv --system-site-packages /opt/course-venv \
     && /opt/course-venv/bin/python -m pip install --no-cache-dir --upgrade pip \
-    && /opt/course-venv/bin/python -m pip install --no-cache-dir -r /tmp/course-requirements.txt
+    && CMAKE_BUILD_PARALLEL_LEVEL=2 /opt/course-venv/bin/python -m pip install --no-cache-dir -r /tmp/course-requirements.txt
 
 RUN existing_user="$(getent passwd 1000 | cut -d: -f1)" \
     && if [[ -n "$existing_user" && "$existing_user" != "student" ]]; then \

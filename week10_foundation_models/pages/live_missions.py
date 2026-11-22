@@ -3,7 +3,7 @@ from lab.local_config import LANGUAGE_TASKS, VISION_TASKS, VISION_REFERENCE, CAP
 from lab.local_jobs import start_job, job_status, cancel_job, installed, live_records, records_complete, compatible_record
 from lab.drafts import checkpoint, current
 from lab.navigation import bottom_nav
-from pages.workflow import field, locked, meaningful, saved_status
+from pages.workflow import control_text, field, locked, meaningful, saved_status
 from pages.guided_visuals import mission_one_setup
 
 
@@ -102,7 +102,7 @@ def render_mission(st, kind):
         st.write("Keep the same photograph. Write the request in your own words, make the selected goal explicit, and ask the model to separate visible evidence from assumptions. For Decide, supplying the missing job is part of the improvement: the original request never said what the robot needed the tool for.")
         st.caption("After generating the new answer, compare it with the original answer for your selected task. Use the other two examples to notice problems, but do not treat answers to different tasks as a direct comparison of quality.")
     key = "control_live_" + kind + "_custom_prompt"
-    own = st.text_area("Your improved request", key=key, max_chars=1200, height=115)
+    own = control_text(st, key, "Your improved request", max_chars=1200, height=115)
     changed = bool(own.strip()) and own.strip() not in [t["prompt"] for t in tasks.values()]
     if st.button("Run my improved request", key="run_" + kind + "_custom", disabled=running or not changed, type="primary"):
         begin(st, kind, "custom", own, [r["job_id"] for r in originals.values()])
